@@ -49,8 +49,6 @@ public final class MaskFactory extends AbstractFactory<Mask> {
      * @param worldEdit the WorldEdit instance
      */
     public MaskFactory(WorldEdit worldEdit) {
-		super(worldEdit, new DefaultMaskParser(worldEdit));
-		/*
         super(worldEdit, new BlocksMaskParser(worldEdit));
 
         register(new ExistingMaskParser(worldEdit));
@@ -62,13 +60,9 @@ public final class MaskFactory extends AbstractFactory<Mask> {
         register(new BlockStateMaskParser(worldEdit));
         register(new NegateMaskParser(worldEdit));
         register(new ExpressionMaskParser(worldEdit));
-		*/
+
         register(new BlockCategoryMaskParser(worldEdit));
-		/*
         register(new BiomeMaskParser(worldEdit));
-		*/
-
-
     }
 
     @Override
@@ -103,9 +97,9 @@ public final class MaskFactory extends AbstractFactory<Mask> {
             case 0:
                 throw new NoMatchException("No match for '" + input + "'");
             case 1:
-                return masks.get(0).optimize();
+                return masks.get(0);
             default:
-                return new MaskIntersection(masks).optimize();
+                return new MaskIntersection(masks);
         }
     }
 

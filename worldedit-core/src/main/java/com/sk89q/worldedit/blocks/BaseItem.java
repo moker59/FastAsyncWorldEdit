@@ -60,11 +60,6 @@ public class BaseItem implements NbtValued {
         this.nbtData = tag;
     }
 
-    @Deprecated
-    public @Nullable Object getNativeItem() {
-        return null;
-    }
-
     /**
      * Get the type of item.
      *

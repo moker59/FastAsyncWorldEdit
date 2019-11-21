@@ -51,7 +51,7 @@ import java.util.Locale;
 /**
  * Represents a world (dimension).
  */
-public interface World extends Extent, Keyed, IChunkCache<IChunkGet> {
+public interface World extends Extent, Keyed {
 
     /**
      * Get the name of the world.
@@ -113,9 +113,7 @@ public interface World extends Extent, Keyed, IChunkCache<IChunkGet> {
      * @param notifyAndLight true to to notify and light
      * @return true if the block was successfully set (return value may not be accurate)
      */
-    default <B extends BlockStateHolder<B>> boolean setBlock(BlockVector3 position, B block, boolean notifyAndLight) throws WorldEditException {
-        return setBlock(position, block);
-    }
+    <B extends BlockStateHolder<B>> boolean setBlock(BlockVector3 position, B block, boolean notifyAndLight) throws WorldEditException;
 
     /**
      * Notifies the simulation that the block at the given location has
@@ -133,13 +131,7 @@ public interface World extends Extent, Keyed, IChunkCache<IChunkGet> {
      * @param position the position
      * @return the light level (0-15)
      */
-    default int getBlockLightLevel(BlockVector3 position) {
-        if (this instanceof LightingExtent) {
-            LightingExtent extent = (LightingExtent) this;
-            return extent.getBlockLight(position.getX(), position.getY(), position.getZ());
-        }
-        return getBlock(position).getMaterial().getLightValue();
-    }
+    int getBlockLightLevel(BlockVector3 position);
 
     /**
      * Clear a chest's contents.
@@ -284,32 +276,4 @@ public interface World extends Extent, Keyed, IChunkCache<IChunkGet> {
     @Override
     int hashCode();
 
-    @Override
-    default boolean isWorld() {
-        return true;
-    }
-
-    @Override
-    default String getId() {
-        return getName().replace(" ", "_").toLowerCase(Locale.ROOT);
-    }
-
-    /**
-     * Refresh a specific chunk
-     * Note: only 0 is guaranteed to send all tiles / entities
-     * Note: Only 65535 is guaranteed to send all blocks
-     * @param chunkX
-     * @param chunkZ
-     */
-    void refreshChunk(final int chunkX, final int chunkZ);
-
-    @Override
-    IChunkGet get(int x, int z);
-
-    /**
-     * Send a fake chunk to a player/s
-     * @param player may be null to send to everyone
-     * @param packet the chunk packet
-     */
-    void sendFakeChunk(@Nullable Player player, ChunkPacket packet);
 }

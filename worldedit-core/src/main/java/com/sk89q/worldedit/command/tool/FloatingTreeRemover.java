@@ -74,7 +74,7 @@ public class FloatingTreeRemover implements BlockTool {
         final BlockState state = world.getBlock(clicked.toVector().toBlockPoint());
 
         if (!isTreeBlock(state.getBlockType())) {
-            player.printError(BBC.TOOL_DELTREE_ERROR.s());
+            player.printError("That's not a tree.");
             return true;
         }
 
@@ -82,7 +82,7 @@ public class FloatingTreeRemover implements BlockTool {
             try {
                 final Set<BlockVector3> blockSet = bfs(world, clicked.toVector().toBlockPoint());
                 if (blockSet == null) {
-                    player.printError(BBC.TOOL_DELTREE_FLOATING_ERROR.s());
+                    player.printError("That's not a floating tree.");
                     return true;
                 }
 
@@ -119,38 +119,34 @@ public class FloatingTreeRemover implements BlockTool {
      * @return a set containing all blocks in the tree/shroom or null if this is not a floating tree/shroom.
      */
     private Set<BlockVector3> bfs(World world, BlockVector3 origin) {
-        final LocalBlockVectorSet visited = new LocalBlockVectorSet();
-        final LocalBlockVectorSet queue = new LocalBlockVectorSet();
+        final Set<BlockVector3> visited = new HashSet<>();
+        final LinkedList<BlockVector3> queue = new LinkedList<>();
 
-        queue.add(origin);
+        queue.addLast(origin);
         visited.add(origin);
 
         while (!queue.isEmpty()) {
-            Iterator<BlockVector3> iter = queue.iterator();
-            while (iter.hasNext()) {
-                final BlockVector3 current = iter.next();
-                iter.remove();
-                for (BlockVector3 recurseDirection : recurseDirections) {
-                    final BlockVector3 next = current.add(recurseDirection);
-                    if (origin.distanceSq(next) > rangeSq) {
-                        // Maximum range exceeded => stop walking
+            final BlockVector3 current = queue.removeFirst();
+            for (BlockVector3 recurseDirection : recurseDirections) {
+                final BlockVector3 next = current.add(recurseDirection);
+                if (origin.distanceSq(next) > rangeSq) {
+                    // Maximum range exceeded => stop walking
+                    continue;
+                }
+
+                if (visited.add(next)) {
+                    BlockState state = world.getBlock(next);
+                    if (state.getBlockType().getMaterial().isAir() || state.getBlockType() == BlockTypes.SNOW) {
                         continue;
                     }
-
-                    if (visited.add(next)) {
-                        BlockState state = world.getBlock(next);
-                        if (state.getBlockType().getMaterial().isAir() || state.getBlockType() == BlockTypes.SNOW) {
-                            continue;
-                        }
-                        if (isTreeBlock(state.getBlockType())) {
-                            queue.add(next);
-                        } else {
-                            // we hit something solid - evaluate where we came from
-                            final BlockType currentType = world.getBlock(current).getBlockType();
-                            if (!BlockCategories.LEAVES.contains(currentType) && currentType != BlockTypes.VINE) {
-                                // log/shroom touching a wall/the ground => this is not a floating tree, bail out
-                                return null;
-                            }
+                    if (isTreeBlock(state.getBlockType())) {
+                        queue.addLast(next);
+                    } else {
+                        // we hit something solid - evaluate where we came from
+                        final BlockType currentType = world.getBlock(current).getBlockType();
+                        if (!BlockCategories.LEAVES.contains(currentType) && currentType != BlockTypes.VINE) {
+                            // log/shroom touching a wall/the ground => this is not a floating tree, bail out
+                            return null;
                         }
                     }
                 }

@@ -30,7 +30,7 @@ import java.util.concurrent.Callable;
 
 public final class ActorCallbackPaste {
 
-    private static final Paster paster = new IncendoPaster("fastasyncworldedit");
+    private static final Paster paster = new EngineHubPaste();
 
     private ActorCallbackPaste() {
     }

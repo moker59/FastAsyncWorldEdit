@@ -28,34 +28,14 @@ import com.sk89q.worldedit.registry.RegistryItem;
 /**
  * All the types of biomes in the game.
  */
-public class BiomeType implements RegistryItem, Keyed, BiomePattern {
+public class BiomeType implements Keyed, BiomePattern {
 
     public static final NamespacedRegistry<BiomeType> REGISTRY = new NamespacedRegistry<>("biome type");
 
-    private final String id;
-    private int legacyId = -1;
-    private int internalId;
+    private String id;
 
     public BiomeType(String id) {
         this.id = id;
-    }
-
-    public int getLegacyId() {
-        return legacyId;
-    }
-
-    public void setLegacyId(int legacyId) {
-        this.legacyId = legacyId;
-    }
-
-    @Override
-    public void setInternalId(int internalId) {
-        this.internalId = internalId;
-    }
-
-    @Override
-    public int getInternalId() {
-        return internalId;
     }
 
     /**
@@ -75,7 +55,7 @@ public class BiomeType implements RegistryItem, Keyed, BiomePattern {
 
     @Override
     public int hashCode() {
-        return this.internalId; // stop changing this
+        return this.id.hashCode();
     }
 
     @Override

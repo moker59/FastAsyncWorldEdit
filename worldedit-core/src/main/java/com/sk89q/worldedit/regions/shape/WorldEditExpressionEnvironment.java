@@ -30,12 +30,8 @@ public class WorldEditExpressionEnvironment implements ExpressionEnvironment {
 
     private final Vector3 unit;
     private final Vector3 zero2;
-    private Vector3 current = new MutableVector3(Vector3.ZERO);
+    private Vector3 current = Vector3.ZERO;
     private Extent extent;
-
-    public WorldEditExpressionEnvironment(EditSession editSession, Vector3 unit, Vector3 zero) {
-        this((Extent) editSession, unit, zero);
-    }
 
     public WorldEditExpressionEnvironment(Extent extent, Vector3 unit, Vector3 zero) {
         this.extent = extent;
@@ -54,36 +50,32 @@ public class WorldEditExpressionEnvironment implements ExpressionEnvironment {
 
     @Override
     public int getBlockType(double x, double y, double z) {
-        return extent.getBlock(toWorld(x, y, z)).getBlockType().getLegacyCombinedId() >> 4;
+        return extent.getBlock(toWorld(x, y, z)).getBlockType().getLegacyId();
     }
 
     @Override
     public int getBlockData(double x, double y, double z) {
-        return extent.getBlock(toWorld(x, y, z)).getBlockType().getLegacyCombinedId() & 0xF;
+        return 0;
     }
 
     @Override
     public int getBlockTypeAbs(double x, double y, double z) {
-        return extent.getBlock(BlockVector3.at(x, y, z)).getBlockType().getLegacyCombinedId() >> 4;
+        return extent.getBlock(BlockVector3.at(x, y, z)).getBlockType().getLegacyId();
     }
 
     @Override
     public int getBlockDataAbs(double x, double y, double z) {
-        return extent.getBlock(toWorld(x, y, z)).getBlockType().getLegacyCombinedId() & 0xF;
+        return 0;
     }
 
     @Override
     public int getBlockTypeRel(double x, double y, double z) {
-        return extent.getBlock(toWorldRel(x, y, z).toBlockPoint()).getBlockType().getLegacyCombinedId() >> 4;
+        return extent.getBlock(toWorldRel(x, y, z).toBlockPoint()).getBlockType().getLegacyId();
     }
 
     @Override
     public int getBlockDataRel(double x, double y, double z) {
-        return extent.getBlock(toWorld(x, y, z)).getBlockType().getLegacyCombinedId() & 0xF;
-    }
-
-    public void setCurrentBlock(int x, int y, int z) {
-        current.setComponents(x, y, z);
+        return 0;
     }
 
     public void setCurrentBlock(Vector3 current) {

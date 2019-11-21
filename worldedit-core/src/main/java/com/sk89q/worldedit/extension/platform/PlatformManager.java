@@ -240,7 +240,6 @@ public class PlatformManager {
      */
     public World getWorldForEditing(World base) {
         checkNotNull(base);
-        base = WorldWrapper.unwrap(base);
         World match = queryCapability(Capability.WORLD_EDITING).matchWorld(base);
         return match != null ? match : base;
     }
@@ -304,11 +303,6 @@ public class PlatformManager {
         }
     }
 
-    private <T extends Tool> T reset(T tool) {
-        new PatternTraverser(tool).reset(null);
-        return tool;
-    }
-
     @Subscribe
     public void handleBlockInteract(BlockInteractEvent event) {
         // Create a proxy actor with a potentially different world for
@@ -321,75 +315,47 @@ public class PlatformManager {
         if (!(actor instanceof Player)) {
             return;
         }
-            Player player = (Player) actor;
-            LocalSession session = worldEdit.getSessionManager().get(actor);
+        Player player = (Player) actor;
+        LocalSession session = worldEdit.getSessionManager().get(actor);
 
-            Request.reset();
-            Request.request().setSession(session);
-            Request.request().setWorld(player.getWorld());
+        Request.reset();
+        Request.request().setSession(session);
+        Request.request().setWorld(player.getWorld());
 
-            try {
-            Vector3 vector = location.toVector();
-
-            VirtualWorld virtual = session.getVirtualWorld();
-            if (virtual != null) {
-                virtual.handleBlockInteract(player, vector.toBlockPoint(), event);
-                if (event.isCancelled()) return;
-                        }
-
+        try {
             if (event.getType() == Interaction.HIT) {
                 // superpickaxe is special because its primary interaction is a left click, not a right click
                 // in addition, it is implicitly bound to all pickaxe items, not just a single tool item
                 if (session.hasSuperPickAxe() && player.isHoldingPickAxe()) {
-                        final BlockTool superPickaxe = session.getSuperPickaxe();
-                        if (superPickaxe != null && superPickaxe.canUse(player)) {
-                        player.runAction(() -> reset(superPickaxe)
-                            .actPrimary(queryCapability(Capability.WORLD_EDITING),
-                                getConfiguration(), player, session, location), false, true);
-                        event.setCancelled(true);
-                            return;
-                        }
-                    }
-
-                Tool tool = session.getTool(player);
-                if (tool instanceof DoubleActionBlockTool && tool.canUse(player)) {
-                    player.runAction(() -> reset(((DoubleActionBlockTool) tool))
-                        .actSecondary(queryCapability(Capability.WORLD_EDITING),
-                            getConfiguration(), player, session, location), false, true);
+                    final BlockTool superPickaxe = session.getSuperPickaxe();
+                    if (superPickaxe != null && superPickaxe.canUse(player)) {
+                        if (superPickaxe.actPrimary(queryCapability(Capability.WORLD_EDITING),
+                                getConfiguration(), player, session, location)) {
                             event.setCancelled(true);
                         }
+                        return;
+                    }
+                }
 
-                } else if (event.getType() == Interaction.OPEN) {
-                Tool tool = session.getTool(player);
-                if (tool instanceof BlockTool && tool.canUse(player)) {
-                    if (player.checkAction()) {
-                        player.runAction(() -> {
-                            BlockTool blockTool = (BlockTool) tool;
-                            if (!(tool instanceof BrushTool)) {
-                                blockTool = reset(blockTool);
-                        }
-                            blockTool.actPrimary(queryCapability(Capability.WORLD_EDITING),
-                                    getConfiguration(), player, session, location);
-                        }, false, true);
+                Tool tool = session.getTool(player.getItemInHand(HandSide.MAIN_HAND).getType());
+                if (tool instanceof DoubleActionBlockTool && tool.canUse(player)) {
+                    if (((DoubleActionBlockTool) tool).actSecondary(queryCapability(Capability.WORLD_EDITING),
+                            getConfiguration(), player, session, location)) {
                         event.setCancelled(true);
                     }
-                        }
-                    }
-        } catch (Throwable e) {
-            handleThrowable(e, actor);
-            } finally {
-                Request.reset();
-            }
-        }
+                }
 
-    public void handleThrowable(Throwable e, Actor actor) {
-        FaweException faweException = FaweException.get(e);
-        if (faweException != null) {
-            BBC.WORLDEDIT_CANCEL_REASON.send(actor, faweException.getMessage());
-        } else {
-            actor.printError("Please report this error: [See console]");
-            actor.printRaw(e.getClass().getName() + ": " + e.getMessage());
-            e.printStackTrace();
+            } else if (event.getType() == Interaction.OPEN) {
+                Tool tool = session.getTool(player.getItemInHand(HandSide.MAIN_HAND).getType());
+                if (tool instanceof BlockTool && tool.canUse(player)) {
+                    if (((BlockTool) tool).actPrimary(queryCapability(Capability.WORLD_EDITING),
+                            getConfiguration(), player, session, location)) {
+                        event.setCancelled(true);
+                    }
+                }
+            }
+        } finally {
+            Request.reset();
         }
     }
 
@@ -399,49 +365,37 @@ public class PlatformManager {
         // making changes to the world
         Player player = createProxyActor(event.getPlayer());
         LocalSession session = worldEdit.getSessionManager().get(player);
-
-        VirtualWorld virtual = session.getVirtualWorld();
-        if (virtual != null) {
-            virtual.handlePlayerInput(player,  event);
-            if (event.isCancelled()) return;
-        }
+        Request.reset();
+        Request.request().setSession(session);
+        Request.request().setWorld(player.getWorld());
 
         try {
             switch (event.getInputType()) {
                 case PRIMARY: {
-
-                    Tool tool = session.getTool(player);
+                    Tool tool = session.getTool(player.getItemInHand(HandSide.MAIN_HAND).getType());
                     if (tool instanceof DoubleActionTraceTool && tool.canUse(player)) {
-                        player.runAsyncIfFree(() -> reset((DoubleActionTraceTool) tool).actSecondary(queryCapability(Capability.WORLD_EDITING),
-                            getConfiguration(), player, session));
+                        if (((DoubleActionTraceTool) tool).actSecondary(queryCapability(Capability.WORLD_EDITING),
+                                getConfiguration(), player, session)) {
                             event.setCancelled(true);
-                            return;
                         }
+                        return;
+                    }
 
                     break;
                 }
 
                 case SECONDARY: {
-                    Tool tool = session.getTool(player);
+                    Tool tool = session.getTool(player.getItemInHand(HandSide.MAIN_HAND).getType());
                     if (tool instanceof TraceTool && tool.canUse(player)) {
-                        //todo this needs to be fixed so the event is canceled after actPrimary is used and returns true
-                        player.runAction(() -> reset((TraceTool) tool).actPrimary(queryCapability(Capability.WORLD_EDITING),
-                            getConfiguration(), player, session), false, true);
+                        if (((TraceTool) tool).actPrimary(queryCapability(Capability.WORLD_EDITING),
+                                getConfiguration(), player, session)) {
                             event.setCancelled(true);
-                            return;
                         }
+                        return;
+                    }
 
                     break;
                 }
-            }
-        } catch (Throwable e) {
-            FaweException faweException = FaweException.get(e);
-            if (faweException != null) {
-                BBC.WORLDEDIT_CANCEL_REASON.send(player, faweException.getMessage());
-            } else {
-                player.printError("Please report this error: [See console]");
-                player.printRaw(e.getClass().getName() + ": " + e.getMessage());
-                e.printStackTrace();
             }
         } finally {
             Request.reset();

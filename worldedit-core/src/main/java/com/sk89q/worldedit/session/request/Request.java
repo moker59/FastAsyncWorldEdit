@@ -34,20 +34,14 @@ import java.util.List;
  */
 public final class Request {
 
-    private static final CleanableThreadLocal<Request> threadLocal = new CleanableThreadLocal<>(Request::new);
+    private static final ThreadLocal<Request> threadLocal = ThreadLocal.withInitial(Request::new);
 
     private @Nullable World world;
-    private @Nullable Actor actor;
     private @Nullable LocalSession session;
     private @Nullable EditSession editSession;
-    private @Nullable Extent extent;
     private boolean valid;
 
     private Request() {
-    }
-
-    public static List<Request> getAll() {
-        return threadLocal.getAll();
     }
 
     /**
@@ -66,26 +60,6 @@ public final class Request {
      */
     public void setWorld(@Nullable World world) {
         this.world = world;
-    }
-
-    public void setExtent(@Nullable Extent extent) {
-        this.extent = extent;
-    }
-
-    public @Nullable Extent getExtent() {
-        if (extent != null) return extent;
-        if (editSession != null) return editSession;
-        if (world != null) return world;
-        return null;
-    }
-
-    @Nullable
-    public Actor getActor() {
-        return actor;
-    }
-
-    public void setActor(@Nullable Actor actor) {
-        this.actor = actor;
     }
 
     /**

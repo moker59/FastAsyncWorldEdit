@@ -123,16 +123,16 @@ public class BiomeCommands {
         if (useLineOfSight) {
             Location blockPosition = player.getBlockTrace(300);
             if (blockPosition == null) {
-                player.printError(BBC.NO_BLOCK.s());
+                player.printError("No block in sight!");
                 return;
             }
 
-            BiomeType biome = player.getWorld().getBiome(blockPosition.toBlockPoint().toBlockVector2());
+            BiomeType biome = player.getWorld().getBiome(blockPosition.toVector().toBlockPoint().toBlockVector2());
             biomes.add(biome);
 
             qualifier = "at line of sight point";
         } else if (usePosition) {
-            BiomeType biome = player.getWorld().getBiome(player.getLocation().toBlockPoint().toBlockVector2());
+            BiomeType biome = player.getWorld().getBiome(player.getLocation().toVector().toBlockPoint().toBlockVector2());
             biomes.add(biome);
 
             qualifier = "at your position";
@@ -145,17 +145,14 @@ public class BiomeCommands {
                     biomes.add(world.getBiome(pt));
                 }
             } else {
-                RegionVisitor visitor = new RegionVisitor(region, pt -> {
+                for (BlockVector3 pt : region) {
                     biomes.add(world.getBiome(pt.toBlockVector2()));
-                    return true;
-                });
-                Operations.completeBlindly(visitor);
+                }
             }
 
             qualifier = "in your selection";
         }
 
-        BBC.BIOME_LIST_HEADER.send(player, 1, 1);
         player.print(biomes.size() != 1 ? "Biomes " + qualifier + ":" : "Biome " + qualifier + ":");
         for (BiomeType biome : biomes) {
             BiomeData data = biomeRegistry.getData(biome);
@@ -197,10 +194,7 @@ public class BiomeCommands {
         FlatRegionVisitor visitor = new FlatRegionVisitor(Regions.asFlatRegion(region), replace);
         Operations.completeLegacy(visitor);
 
-        BBC.BIOME_CHANGED.send(player, visitor.getAffected());
-        if (!player.hasPermission("fawe.tips")) {
-            BBC.TIP_BIOME_PATTERN.or(BBC.TIP_BIOME_MASK).send(player);
-        }
+        player.print("Biomes were changed in " + visitor.getAffected() + " columns. You may have to rejoin your game (or close and reopen your world) to see a change.");
     }
 
 }

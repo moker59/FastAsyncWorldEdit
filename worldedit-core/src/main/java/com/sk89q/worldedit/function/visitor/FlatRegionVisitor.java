@@ -36,9 +36,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class FlatRegionVisitor implements Operation {
 
+    private final FlatRegion flatRegion;
     private final FlatRegionFunction function;
     private int affected = 0;
-    private final Iterable<BlockVector2> iterator;
 
     /**
      * Create a new visitor.
@@ -50,8 +50,8 @@ public class FlatRegionVisitor implements Operation {
         checkNotNull(flatRegion);
         checkNotNull(function);
 
+        this.flatRegion = flatRegion;
         this.function = function;
-        this.iterator = flatRegion.asFlatRegion();
     }
 
     /**
@@ -65,7 +65,7 @@ public class FlatRegionVisitor implements Operation {
 
     @Override
     public Operation resume(RunContext run) throws WorldEditException {
-        for (BlockVector2 pt : this.iterator) {
+        for (BlockVector2 pt : flatRegion.asFlatRegion()) {
             if (function.apply(pt)) {
                 affected++;
             }
@@ -80,7 +80,7 @@ public class FlatRegionVisitor implements Operation {
 
     @Override
     public void addStatusMessages(List<String> messages) {
-        messages.add(BBC.VISITOR_FLAT.format(getAffected()));
+        messages.add(getAffected() + " columns affected");
     }
 
 }

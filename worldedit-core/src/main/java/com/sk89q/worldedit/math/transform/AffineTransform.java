@@ -31,9 +31,7 @@ import java.io.Serializable;
  * <a href="http://geom-java.sourceforge.net/index.html">JavaGeom project</a>,
  * which is licensed under LGPL v2.1.</p>
  */
-public class AffineTransform implements Transform, Serializable {
-
-    private AffineTransform inverse;
+public class AffineTransform implements Transform {
 
     /**
      * coefficients for x coordinate.
@@ -151,18 +149,6 @@ public class AffineTransform implements Transform, Serializable {
         return new double[]{m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23};
     }
 
-    public boolean isOffAxis() {
-        double[] c = coefficients();
-        for (int i = 0; i < c.length; i++) {
-            if ((i + 1) % 4 != 0) {
-                if (Math.abs(c[i]) != 1 && c[i] != 0) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     /**
      * Computes the determinant of this transform. Can be zero.
      *
@@ -178,7 +164,6 @@ public class AffineTransform implements Transform, Serializable {
      */
     @Override
     public AffineTransform inverse() {
-        if (inverse != null) return inverse;
         double det = this.determinant();
         return new AffineTransform(
                 (m11 * m22 - m21 * m12) / det,
@@ -307,23 +292,12 @@ public class AffineTransform implements Transform, Serializable {
         return scale(vec.getX(), vec.getY(), vec.getZ());
     }
 
-    public boolean isScaled(Vector3 vector) {
-        boolean flip = false;
-        if (vector.getX() != 0 && m00 < 0) flip = !flip;
-        if (vector.getY() != 0 && m11 < 0) flip = !flip;
-        if (vector.getZ() != 0 && m22 < 0) flip = !flip;
-        return flip;
-    }
-
     @Override
     public Vector3 apply(Vector3 vector) {
-        double x = (vector.getX() * m00 + vector.getY() * m01 + vector.getZ() * m02 + m03);
-        double y = (vector.getX() * m10 + vector.getY() * m11 + vector.getZ() * m12 + m13);
-        double z = (vector.getX() * m20 + vector.getY() * m21 + vector.getZ() * m22 + m23);
-        vector = vector.mutX(x);
-        vector = vector.mutY(y);
-        vector = vector.mutZ(z);
-        return vector;
+        return Vector3.at(
+                vector.getX() * m00 + vector.getY() * m01 + vector.getZ() * m02 + m03,
+                vector.getX() * m10 + vector.getY() * m11 + vector.getZ() * m12 + m13,
+                vector.getX() * m20 + vector.getY() * m21 + vector.getZ() * m22 + m23);
     }
 
     public AffineTransform combine(AffineTransform other) {
@@ -332,18 +306,11 @@ public class AffineTransform implements Transform, Serializable {
 
     @Override
     public Transform combine(Transform other) {
-        if (other instanceof Identity || other.isIdentity()) {
-            return this;
-        } else if (other instanceof AffineTransform) {
+        if (other instanceof AffineTransform) {
             return concatenate((AffineTransform) other);
         } else {
             return new CombinedTransform(this, other);
         }
-    }
-
-    @Override
-    public String toString() {
-        return String.format("Affine[%g %g %g %g, %g %g %g %g, %g %g %g %g]}", m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23);
     }
 
     /**
@@ -352,6 +319,11 @@ public class AffineTransform implements Transform, Serializable {
     public boolean isHorizontalFlip() {
         // use the determinant of the x-z submatrix to check if this is a horizontal flip
         return m00 * m22 - m02 * m20 < 0;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Affine[%g %g %g %g, %g %g %g %g, %g %g %g %g]}", m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23);
     }
 
 

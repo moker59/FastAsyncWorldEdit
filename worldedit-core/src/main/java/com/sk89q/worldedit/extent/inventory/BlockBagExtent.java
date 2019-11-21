@@ -39,8 +39,7 @@ import javax.annotation.Nullable;
  */
 public class BlockBagExtent extends AbstractDelegateExtent {
 
-    private final boolean mine;
-    private int[] missingBlocks = new int[BlockTypes.size()];
+    private Map<BlockType, Integer> missingBlocks = new HashMap<>();
     private BlockBag blockBag;
 
     /**
@@ -50,13 +49,8 @@ public class BlockBagExtent extends AbstractDelegateExtent {
      * @param blockBag the block bag
      */
     public BlockBagExtent(Extent extent, @Nullable BlockBag blockBag) {
-        this(extent, blockBag, false);
-    }
-
-    public BlockBagExtent(Extent extent, @Nullable BlockBag blockBag, boolean mine) {
         super(extent);
         this.blockBag = blockBag;
-        this.mine = mine;
     }
 
     /**
@@ -76,6 +70,7 @@ public class BlockBagExtent extends AbstractDelegateExtent {
     public void setBlockBag(@Nullable BlockBag blockBag) {
         this.blockBag = blockBag;
     }
+
     /**
      * Gets the list of missing blocks and clears the list for the next
      * operation.
@@ -83,37 +78,32 @@ public class BlockBagExtent extends AbstractDelegateExtent {
      * @return a map of missing blocks
      */
     public Map<BlockType, Integer> popMissing() {
-        HashMap<BlockType, Integer> map = new HashMap<>();
-        for (int i = 0; i < missingBlocks.length; i++) {
-            int count = missingBlocks[i];
-            if (count > 0) {
-                map.put(BlockTypes.get(i), count);
-            }
-        }
-        Arrays.fill(missingBlocks, 0);
-        return map;
+        Map<BlockType, Integer> missingBlocks = this.missingBlocks;
+        this.missingBlocks = new HashMap<>();
+        return missingBlocks;
     }
 
     @Override
     public <B extends BlockStateHolder<B>> boolean setBlock(BlockVector3 position, B block) throws WorldEditException {
-        return setBlock(position.getX(), position.getY(), position.getZ(), block);
-    }
+        if (blockBag != null) {
+            BlockState existing = getExtent().getBlock(position);
 
-    @Override
-    public <B extends BlockStateHolder<B>> boolean setBlock(int x, int y, int z, B block) throws WorldEditException {
-        BlockState existing = getBlock(x, y, z);
-        if (!block.getBlockType().equals(existing.getBlockType())) {
-            if (!block.getBlockType().getMaterial().isAir()) {
-                try {
-                    blockBag.fetchPlacedBlock(block.toImmutableState());
-                } catch (UnplaceableBlockException e) {
-                    throw FaweCache.BLOCK_BAG;
-                } catch (BlockBagException e) {
-                    missingBlocks[block.getBlockType().getInternalId()]++;
-                    throw FaweCache.BLOCK_BAG;
+            if (!block.getBlockType().equals(existing.getBlockType())) {
+                if (!block.getBlockType().getMaterial().isAir()) {
+                    try {
+                        blockBag.fetchPlacedBlock(block.toImmutableState());
+                    } catch (UnplaceableBlockException e) {
+                        return false;
+                    } catch (BlockBagException e) {
+                        if (!missingBlocks.containsKey(block.getBlockType())) {
+                            missingBlocks.put(block.getBlockType(), 1);
+                        } else {
+                            missingBlocks.put(block.getBlockType(), missingBlocks.get(block.getBlockType()) + 1);
+                        }
+                        return false;
+                    }
                 }
-            }
-            if (mine) {
+
                 if (!existing.getBlockType().getMaterial().isAir()) {
                     try {
                         blockBag.storeDroppedBlock(existing);
@@ -122,6 +112,7 @@ public class BlockBagExtent extends AbstractDelegateExtent {
                 }
             }
         }
-        return super.setBlock(x, y, z, block);
+
+        return super.setBlock(position, block);
     }
 }

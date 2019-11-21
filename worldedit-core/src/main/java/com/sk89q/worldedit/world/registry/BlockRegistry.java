@@ -52,11 +52,6 @@ public interface BlockRegistry {
     @Nullable
     BlockMaterial getMaterial(BlockType blockType);
 
-    @Nullable
-    default BlockMaterial getMaterial(BlockState state) {
-        return getMaterial(state.getBlockType());
-    }
-
     /**
      * Get an unmodifiable map of states for this block.
      *
@@ -73,10 +68,4 @@ public interface BlockRegistry {
      */
     OptionalInt getInternalBlockStateId(BlockState state);
 
-    /**
-     * Register all blocks
-     */
-    default Collection<String> values() {
-        return Collections.emptyList();
-    }
 }

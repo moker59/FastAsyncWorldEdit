@@ -47,11 +47,6 @@ public interface Entity extends Faceted, Locatable {
     @Nullable
     BaseEntity getState();
 
-    default EntityType getType() {
-        BaseEntity state = getState();
-        return state != null ? state.getType() : null;
-    }
-
     /**
      * Remove this entity from it container.
      *

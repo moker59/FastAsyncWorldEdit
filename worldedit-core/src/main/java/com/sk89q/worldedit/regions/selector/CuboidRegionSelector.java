@@ -125,7 +125,7 @@ public class CuboidRegionSelector implements RegionSelector, CUIRegion {
     public boolean selectPrimary(BlockVector3 position, SelectorLimits limits) {
         checkNotNull(position);
 
-        if (position1 != null && position.equals(position1)) {
+        if (position.equals(position1)) {
             return false;
         }
 
@@ -138,7 +138,7 @@ public class CuboidRegionSelector implements RegionSelector, CUIRegion {
     public boolean selectSecondary(BlockVector3 position, SelectorLimits limits) {
         checkNotNull(position);
 
-        if (position2 != null && position.equals(position2)) {
+        if (position.equals(position2)) {
             return false;
         }
 
@@ -153,7 +153,6 @@ public class CuboidRegionSelector implements RegionSelector, CUIRegion {
         checkNotNull(session);
         checkNotNull(pos);
 
-        //TODO Re-add better translation
         if (position1 != null && position2 != null) {
             player.print("First position set to " + position1 + " (" + region.getArea() + ").");
         } else {
@@ -169,7 +168,6 @@ public class CuboidRegionSelector implements RegionSelector, CUIRegion {
         checkNotNull(session);
         checkNotNull(pos);
 
-        //TODO Re-add better translation
         if (position1 != null && position2 != null) {
             player.print("Second position set to " + position2 + " (" + region.getArea() + ").");
         } else {
@@ -300,9 +298,5 @@ public class CuboidRegionSelector implements RegionSelector, CUIRegion {
     public String getLegacyTypeID() {
         return "cuboid";
     }
-
-    @Override
-    public List<BlockVector3> getVertices() {
-        return Arrays.asList(position1, position2);
-    }
+    
 }

@@ -25,16 +25,4 @@ import com.sk89q.worldedit.WorldEdit;
  * An abstract base class for all WorldEdit events.
  */
 public abstract class Event {
-
-    /**
-     * Returns true if this event was called and not cancelled
-     * @return !isCancelled
-     */
-    public boolean call() {
-        WorldEdit.getInstance().getEventBus().post(this);
-        if (this instanceof Cancellable) {
-            return !((Cancellable) this).isCancelled();
-        }
-        return true;
-    }
 }

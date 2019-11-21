@@ -43,7 +43,6 @@ public class ParserContext {
     private boolean restricted = true;
     private boolean tryLegacy = true;
     private boolean preferringWildcard;
-    private InjectedValueAccess injected;
 
     /**
      * Create a new instance.
@@ -249,13 +248,5 @@ public class ParserContext {
      */
     public boolean isTryingLegacy() {
         return tryLegacy;
-    }
-
-    public void setInjected(InjectedValueAccess injected) {
-        this.injected = injected;
-    }
-
-    public InjectedValueAccess getInjected() {
-        return injected;
     }
 }

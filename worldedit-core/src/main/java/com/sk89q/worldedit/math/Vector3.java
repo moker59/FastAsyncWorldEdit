@@ -30,16 +30,15 @@ import java.util.Comparator;
 /**
  * An immutable 3-dimensional vector.
  */
-public abstract class Vector3 {
+public final class Vector3 {
 
-    public static final Vector3 ZERO = Vector3.at(0, 0, 0);
-    public static final Vector3 UNIT_X = Vector3.at(1, 0, 0);
-    public static final Vector3 UNIT_Y = Vector3.at(0, 1, 0);
-    public static final Vector3 UNIT_Z = Vector3.at(0, 0, 1);
-    public static final Vector3 ONE = Vector3.at(1, 1, 1);
+    public static final Vector3 ZERO = new Vector3(0, 0, 0);
+    public static final Vector3 UNIT_X = new Vector3(1, 0, 0);
+    public static final Vector3 UNIT_Y = new Vector3(0, 1, 0);
+    public static final Vector3 UNIT_Z = new Vector3(0, 0, 1);
+    public static final Vector3 ONE = new Vector3(1, 1, 1);
 
     public static Vector3 at(double x, double y, double z) {
-        /* Unnecessary
         // switch for efficiency on typical cases
         // in MC y is rarely 0/1 on selections
         int yTrunc = (int) y;
@@ -55,24 +54,23 @@ public abstract class Vector3 {
                 }
                 break;
         }
-        */
-        return new Vector3Impl(x, y, z);
+        return new Vector3(x, y, z);
     }
 
     // thread-safe initialization idiom
     private static final class YzxOrderComparator {
         private static final Comparator<Vector3> YZX_ORDER = (a, b) -> {
             return ComparisonChain.start()
-                    .compare(a.getY(), b.getY())
-                    .compare(a.getZ(), b.getZ())
-                    .compare(a.getX(), b.getX())
+                    .compare(a.y, b.y)
+                    .compare(a.z, b.z)
+                    .compare(a.x, b.x)
                     .result();
         };
     }
 
     /**
      * Returns a comparator that sorts vectors first by Y, then Z, then X.
-     *
+     * 
      * <p>
      * Useful for sorting by chunk block storage order.
      */
@@ -80,52 +78,19 @@ public abstract class Vector3 {
         return YzxOrderComparator.YZX_ORDER;
     }
 
-    public int getBlockX() {
-        return MathMan.roundInt(getX());
-    }
+    private final double x, y, z;
 
-    public int getBlockY() {
-        return MathMan.roundInt(getY());
-    }
-
-    public int getBlockZ() {
-        return MathMan.roundInt(getZ());
-    }
-
-    public MutableVector3 setComponents(Vector3 other) {
-        return new MutableVector3(other);
-    }
-
-    public MutableVector3 setComponents(int x, int y, int z) {
-        return new MutableVector3(x, y, z);
-    }
-
-    public MutableVector3 setComponents(double x, double y, double z) {
-        return new MutableVector3(x, y, z);
-    }
-
-    public MutableVector3 mutX(int x) {
-        return new MutableVector3(x, getY(), getZ());
-    }
-
-    public MutableVector3 mutX(double x) {
-        return new MutableVector3(x, getY(), getZ());
-    }
-
-    public MutableVector3 mutY(int y) {
-        return new MutableVector3(getX(), y, getZ());
-    }
-
-    public MutableVector3 mutY(double y) {
-        return new MutableVector3(getX(), y, getZ());
-    }
-
-    public MutableVector3 mutZ(int z) {
-        return new MutableVector3(getX(), getY(), z);
-    }
-
-    public MutableVector3 mutZ(double z) {
-        return new MutableVector3(getX(), getY(), z);
+    /**
+     * Construct an instance.
+     *
+     * @param x the X coordinate
+     * @param y the Y coordinate
+     * @param z the Z coordinate
+     */
+    private Vector3(double x, double y, double z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
 
     /**
@@ -133,7 +98,9 @@ public abstract class Vector3 {
      *
      * @return the x coordinate
      */
-    public abstract double getX();
+    public double getX() {
+        return x;
+    }
 
     /**
      * Set the X coordinate.
@@ -142,7 +109,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 withX(double x) {
-        return Vector3.at(x, getY(), getZ());
+        return Vector3.at(x, y, z);
     }
 
     /**
@@ -150,7 +117,9 @@ public abstract class Vector3 {
      *
      * @return the y coordinate
      */
-    public abstract double getY();
+    public double getY() {
+        return y;
+    }
 
     /**
      * Set the Y coordinate.
@@ -159,7 +128,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 withY(double y) {
-        return Vector3.at(getX(), y, getZ());
+        return Vector3.at(x, y, z);
     }
 
     /**
@@ -167,7 +136,9 @@ public abstract class Vector3 {
      *
      * @return the z coordinate
      */
-    public abstract double getZ();
+    public double getZ() {
+        return z;
+    }
 
     /**
      * Set the Z coordinate.
@@ -176,7 +147,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 withZ(double z) {
-        return Vector3.at(getX(), getY(), z);
+        return Vector3.at(x, y, z);
     }
 
     /**
@@ -186,7 +157,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 add(Vector3 other) {
-        return add(other.getX(), other.getY(), other.getZ());
+        return add(other.x, other.y, other.z);
     }
 
     /**
@@ -198,7 +169,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 add(double x, double y, double z) {
-        return Vector3.at(this.getX() + x, this.getY() + y, this.getZ() + z);
+        return Vector3.at(this.x + x, this.y + y, this.z + z);
     }
 
     /**
@@ -209,12 +180,12 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 add(Vector3... others) {
-        double newX = getX(), newY = getY(), newZ = getZ();
+        double newX = x, newY = y, newZ = z;
 
         for (Vector3 other : others) {
-            newX += other.getX();
-            newY += other.getY();
-            newZ += other.getZ();
+            newX += other.x;
+            newY += other.y;
+            newZ += other.z;
         }
 
         return Vector3.at(newX, newY, newZ);
@@ -228,7 +199,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 subtract(Vector3 other) {
-        return subtract(other.getX(), other.getY(), other.getZ());
+        return subtract(other.x, other.y, other.z);
     }
 
     /**
@@ -241,7 +212,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 subtract(double x, double y, double z) {
-        return Vector3.at(this.getX() - x, this.getY() - y, this.getZ() - z);
+        return Vector3.at(this.x - x, this.y - y, this.z - z);
     }
 
     /**
@@ -252,12 +223,12 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 subtract(Vector3... others) {
-        double newX = getX(), newY = getY(), newZ = getZ();
+        double newX = x, newY = y, newZ = z;
 
         for (Vector3 other : others) {
-            newX -= other.getX();
-            newY -= other.getY();
-            newZ -= other.getZ();
+            newX -= other.x;
+            newY -= other.y;
+            newZ -= other.z;
         }
 
         return Vector3.at(newX, newY, newZ);
@@ -270,7 +241,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 multiply(Vector3 other) {
-        return multiply(other.getX(), other.getY(), other.getZ());
+        return multiply(other.x, other.y, other.z);
     }
 
     /**
@@ -282,7 +253,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 multiply(double x, double y, double z) {
-        return Vector3.at(this.getX() * x, this.getY() * y, this.getZ() * z);
+        return Vector3.at(this.x * x, this.y * y, this.z * z);
     }
 
     /**
@@ -292,12 +263,12 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 multiply(Vector3... others) {
-        double newX = getX(), newY = getY(), newZ = getZ();
+        double newX = x, newY = y, newZ = z;
 
         for (Vector3 other : others) {
-            newX *= other.getX();
-            newY *= other.getY();
-            newZ *= other.getZ();
+            newX *= other.x;
+            newY *= other.y;
+            newZ *= other.z;
         }
 
         return Vector3.at(newX, newY, newZ);
@@ -320,7 +291,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 divide(Vector3 other) {
-        return divide(other.getX(), other.getY(), other.getZ());
+        return divide(other.x, other.y, other.z);
     }
 
     /**
@@ -332,7 +303,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 divide(double x, double y, double z) {
-        return Vector3.at(this.getX() / x, this.getY() / y, this.getZ() / z);
+        return Vector3.at(this.x / x, this.y / y, this.z / z);
     }
 
     /**
@@ -360,7 +331,7 @@ public abstract class Vector3 {
      * @return length, squared
      */
     public double lengthSq() {
-        return getX() * getX() + getY() * getY() + getZ() * getZ();
+        return x * x + y * y + z * z;
     }
 
     /**
@@ -380,9 +351,9 @@ public abstract class Vector3 {
      * @return distance
      */
     public double distanceSq(Vector3 other) {
-        double dx = other.getX() - getX();
-        double dy = other.getY() - getY();
-        double dz = other.getZ() - getZ();
+        double dx = other.x - x;
+        double dy = other.y - y;
+        double dz = other.z - z;
         return dx * dx + dy * dy + dz * dz;
     }
 
@@ -403,7 +374,7 @@ public abstract class Vector3 {
      * @return the dot product of this and the other vector
      */
     public double dot(Vector3 other) {
-        return getX() * other.getX() + getY() * other.getY() + getZ() * other.getZ();
+        return x * other.x + y * other.y + z * other.z;
     }
 
     /**
@@ -413,10 +384,10 @@ public abstract class Vector3 {
      * @return the cross product of this and the other vector
      */
     public Vector3 cross(Vector3 other) {
-        return Vector3.at(
-            getY() * other.getZ() - getZ() * other.getY(),
-            getZ() * other.getX() - getX() * other.getZ(),
-            getX() * other.getY() - getY() * other.getX()
+        return new Vector3(
+            y * other.z - z * other.y,
+            z * other.x - x * other.z,
+            x * other.y - y * other.x
         );
     }
 
@@ -428,7 +399,7 @@ public abstract class Vector3 {
      * @return true if the vector is contained
      */
     public boolean containedWithin(Vector3 min, Vector3 max) {
-        return getX() >= min.getX() && getX() <= max.getX() && getY() >= min.getY() && getY() <= max.getY() && getZ() >= min.getZ() && getZ() <= max.getZ();
+        return x >= min.x && x <= max.x && y >= min.y && y <= max.y && z >= min.z && z <= max.z;
     }
 
     /**
@@ -440,11 +411,11 @@ public abstract class Vector3 {
      */
     public Vector3 clampY(int min, int max) {
         checkArgument(min <= max, "minimum cannot be greater than maximum");
-        if (getY() < min) {
-            return Vector3.at(getX(), min, getZ());
+        if (y < min) {
+            return Vector3.at(x, min, z);
         }
-        if (getY() > max) {
-            return Vector3.at(getX(), max, getZ());
+        if (y > max) {
+            return Vector3.at(x, max, z);
         }
         return this;
     }
@@ -455,7 +426,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 floor() {
-        return Vector3.at(Math.floor(getX()), Math.floor(getY()), Math.floor(getZ()));
+        return Vector3.at(Math.floor(x), Math.floor(y), Math.floor(z));
     }
 
     /**
@@ -464,7 +435,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 ceil() {
-        return Vector3.at(Math.ceil(getX()), Math.ceil(getY()), Math.ceil(getZ()));
+        return Vector3.at(Math.ceil(x), Math.ceil(y), Math.ceil(z));
     }
 
     /**
@@ -475,7 +446,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 round() {
-        return Vector3.at(Math.floor(getX() + 0.5), Math.floor(getY() + 0.5), Math.floor(getZ() + 0.5));
+        return Vector3.at(Math.floor(x + 0.5), Math.floor(y + 0.5), Math.floor(z + 0.5));
     }
 
     /**
@@ -485,7 +456,7 @@ public abstract class Vector3 {
      * @return a new vector
      */
     public Vector3 abs() {
-        return Vector3.at(Math.abs(getX()), Math.abs(getY()), Math.abs(getZ()));
+        return Vector3.at(Math.abs(x), Math.abs(y), Math.abs(z));
     }
 
     /**
@@ -501,16 +472,16 @@ public abstract class Vector3 {
      */
     public Vector3 transform2D(double angle, double aboutX, double aboutZ, double translateX, double translateZ) {
         angle = Math.toRadians(angle);
-        double x = this.getX() - aboutX;
-        double z = this.getZ() - aboutZ;
+        double x = this.x - aboutX;
+        double z = this.z - aboutZ;
         double cos = Math.cos(angle);
         double sin = Math.sin(angle);
         double x2 = x * cos - z * sin;
         double z2 = x * sin + z * cos;
 
-        return Vector3.at(
+        return new Vector3(
             x2 + aboutX + translateX,
-            getY(),
+            y,
             z2 + aboutZ + translateZ
         );
     }
@@ -556,10 +527,10 @@ public abstract class Vector3 {
      * @return minimum
      */
     public Vector3 getMinimum(Vector3 v2) {
-        return Vector3.at(
-                Math.min(getX(), v2.getX()),
-                Math.min(getY(), v2.getY()),
-                Math.min(getZ(), v2.getZ())
+        return new Vector3(
+                Math.min(x, v2.x),
+                Math.min(y, v2.y),
+                Math.min(z, v2.z)
         );
     }
 
@@ -570,10 +541,10 @@ public abstract class Vector3 {
      * @return maximum
      */
     public Vector3 getMaximum(Vector3 v2) {
-        return Vector3.at(
-                Math.max(getX(), v2.getX()),
-                Math.max(getY(), v2.getY()),
-                Math.max(getZ(), v2.getZ())
+        return new Vector3(
+                Math.max(x, v2.x),
+                Math.max(y, v2.y),
+                Math.max(z, v2.z)
         );
     }
 
@@ -595,7 +566,7 @@ public abstract class Vector3 {
      * @return a new {@code BlockVector}
      */
     public BlockVector3 toBlockPoint() {
-        return toBlockPoint(getX(), getY(), getZ());
+        return toBlockPoint(x, y, z);
     }
 
     /**
@@ -604,7 +575,7 @@ public abstract class Vector3 {
      * @return a new {@link Vector2}
      */
     public Vector2 toVector2() {
-        return Vector2.at(getX(), getZ());
+        return Vector2.at(x, z);
     }
 
     @Override
@@ -614,19 +585,20 @@ public abstract class Vector3 {
         }
 
         Vector3 other = (Vector3) obj;
-        return other.getX() == this.getX() && other.getY() == this.getY() && other.getZ() == this.getZ();
+        return other.x == this.x && other.y == this.y && other.z == this.z;
     }
 
     @Override
     public int hashCode() {
-        return (int) getX() ^ (int) getZ() << 12 ^ (int) getY() << 24;
+        int hash = 17;
+        hash = 31 * hash + Double.hashCode(x);
+        hash = 31 * hash + Double.hashCode(y);
+        hash = 31 * hash + Double.hashCode(z);
+        return hash;
     }
 
     @Override
     public String toString() {
-        String x = (getX() == getBlockX() ? "" + getBlockX() : "" + getX());
-        String y = (getY() == getBlockY() ? "" + getBlockY() : "" + getY());
-        String z = (getZ() == getBlockZ() ? "" + getBlockZ() : "" + getZ());
         return "(" + x + ", " + y + ", " + z + ")";
     }
 

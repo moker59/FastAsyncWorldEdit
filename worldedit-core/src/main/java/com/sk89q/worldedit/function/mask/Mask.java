@@ -37,69 +37,12 @@ public interface Mask {
      */
     boolean test(BlockVector3 vector);
 
-    default <T extends Filter> MaskFilter<T> toFilter(T filter) {
-        return new MaskFilter<>(filter, this);
-    }
-
     /**
      * Get the 2D version of this mask if one exists.
      *
      * @return a 2D mask version or {@code null} if this mask can't be 2D
      */
     @Nullable
-    default Mask2D toMask2D() {
-        return null;
-    }
+    Mask2D toMask2D();
 
-    /**
-     * Returns null if no optimization took place
-     * otherwise a new/same mask
-     * @return
-     */
-    default Mask tryOptimize() {
-        return null;
-    }
-
-    default Mask tryCombine(Mask other) {
-        return null;
-    }
-
-    default Mask tryOr(Mask other) {
-        return null;
-    }
-
-    default Mask optimize() {
-        Mask value = tryOptimize();
-        return value == null ? this : value;
-    }
-
-    default Mask and(Mask other) {
-        Mask value = and(other);
-        return value == null ? MaskIntersection.of(this, other) : value;
-    }
-
-    default Mask or(Mask other) {
-        Mask value = or(other);
-        return value == null ? MaskUnion.of(this, other) : value;
-    }
-
-    default Mask inverse() {
-        if (this instanceof Masks.AlwaysTrue) {
-            return Masks.ALWAYS_FALSE;
-        } else if (this instanceof Masks.AlwaysFalse) {
-            return Masks.ALWAYS_TRUE;
-        }
-        return new InverseMask(this);
-    }
-
-    default Filter toFilter(Runnable run) {
-        return new Filter() {
-            @Override
-            public void applyBlock(FilterBlock block) {
-                if (test(block)) {
-                    run.run();
-                }
-            }
-        };
-    }
 }

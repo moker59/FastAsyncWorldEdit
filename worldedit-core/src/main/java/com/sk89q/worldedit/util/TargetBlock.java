@@ -54,7 +54,7 @@ public class TargetBlock {
 
     /**
      * Constructor requiring a player, uses default values
-     *
+     * 
      * @param player player to work with
      */
     public TargetBlock(Player player) {
@@ -109,7 +109,7 @@ public class TargetBlock {
 
     /**
      * Set the values, all constructors uses this function
-     *
+     * 
      * @param loc location of the view
      * @param xRotation the X rotation
      * @param yRotation the Y rotation
@@ -138,7 +138,7 @@ public class TargetBlock {
     /**
      * Returns any block at the sight. Returns null if out of range or if no
      * viable target was found. Will try to return the last valid air block it finds.
-     *
+     * 
      * @return Block
      */
     public Location getAnyTargetBlock() {
@@ -163,7 +163,7 @@ public class TargetBlock {
     /**
      * Returns the block at the sight. Returns null if out of range or if no
      * viable target was found
-     *
+     * 
      * @return Block
      */
     public Location getTargetBlock() {
@@ -175,7 +175,7 @@ public class TargetBlock {
     /**
      * Returns the block at the sight. Returns null if out of range or if no
      * viable target was found
-     *
+     * 
      * @return Block
      */
     public Location getSolidTargetBlock() {
@@ -186,7 +186,7 @@ public class TargetBlock {
 
     /**
      * Get next block
-     *
+     * 
      * @return next block position
      */
     public Location getNextBlock() {
@@ -212,7 +212,7 @@ public class TargetBlock {
 
     /**
      * Returns the current block along the line of vision
-     *
+     * 
      * @return block position
      */
     public Location getCurrentBlock() {
@@ -225,7 +225,7 @@ public class TargetBlock {
 
     /**
      * Returns the previous block in the aimed path
-     *
+     * 
      * @return block position
      */
     public Location getPreviousBlock() {

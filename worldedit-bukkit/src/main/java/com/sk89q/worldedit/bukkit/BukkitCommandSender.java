@@ -106,9 +106,6 @@ public class BukkitCommandSender extends AbstractNonPlayerActor {
         return true;
     }
 
-    @Override public void setPermission(String permission, boolean value) {
-    }
-
     @Override
     public void checkPermission(String permission) throws AuthorizationException {
     }
@@ -124,10 +121,6 @@ public class BukkitCommandSender extends AbstractNonPlayerActor {
 
             @Override
             public boolean isActive() {
-                if (sender instanceof Entity) {
-                    Entity entity = (Entity) sender;
-                    return (entity.isValid() && !entity.isDead());
-                }
                 return true;
             }
 

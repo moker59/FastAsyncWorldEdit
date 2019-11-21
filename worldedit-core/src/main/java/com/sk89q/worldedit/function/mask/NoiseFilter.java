@@ -86,7 +86,7 @@ public class NoiseFilter extends AbstractMask {
 
     @Override
     public boolean test(BlockVector3 vector) {
-        return noiseGenerator.noise(MutableVector3.get(vector.getX(), vector.getY(), vector.getZ())) <= density;
+        return noiseGenerator.noise(vector.toVector3()) <= density;
     }
 
     @Nullable

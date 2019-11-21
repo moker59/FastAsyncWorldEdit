@@ -36,9 +36,10 @@ import com.sk89q.worldedit.math.Vector3Impl;
  * {@link #equals(Object)} are subject to minor differences caused by
  * floating point errors.</p>
  */
-public class Location extends Vector3Impl {
+public class Location {
 
     private final Extent extent;
+    private final Vector3 position;
     private final float pitch;
     private final float yaw;
 
@@ -127,10 +128,10 @@ public class Location extends Vector3Impl {
      * @param pitch the pitch, in degrees
      */
     public Location(Extent extent, Vector3 position, float yaw, float pitch) {
-        super(position);
         checkNotNull(extent);
         checkNotNull(position);
         this.extent = extent;
+        this.position = position;
         this.pitch = pitch;
         this.yaw = yaw;
     }
@@ -151,7 +152,7 @@ public class Location extends Vector3Impl {
      * @return the new instance
      */
     public Location setExtent(Extent extent) {
-        return new Location(extent, this, getDirection());
+        return new Location(extent, position, getDirection());
     }
 
     /**
@@ -170,7 +171,7 @@ public class Location extends Vector3Impl {
      * @return the new instance
      */
     public Location setYaw(float yaw) {
-        return new Location(extent, this, yaw, pitch);
+        return new Location(extent, position, yaw, pitch);
     }
 
     /**
@@ -189,7 +190,7 @@ public class Location extends Vector3Impl {
      * @return the new instance
      */
     public Location setPitch(float pitch) {
-        return new Location(extent, this, yaw, pitch);
+        return new Location(extent, position, yaw, pitch);
     }
 
     /**
@@ -200,7 +201,7 @@ public class Location extends Vector3Impl {
      * @return the new instance
      */
     public Location setDirection(float yaw, float pitch) {
-        return new Location(extent, this, yaw, pitch);
+        return new Location(extent, position, yaw, pitch);
     }
 
     /**
@@ -237,7 +238,7 @@ public class Location extends Vector3Impl {
      * @return the new instance
      */
     public Location setDirection(Vector3 direction) {
-        return new Location(extent, this, (float) direction.toYaw(), (float) direction.toPitch());
+        return new Location(extent, position, (float) direction.toYaw(), (float) direction.toPitch());
     }
 
     /**
@@ -246,7 +247,25 @@ public class Location extends Vector3Impl {
      * @return a vector
      */
     public Vector3 toVector() {
-        return this;
+        return position;
+    }
+
+    /**
+     * Get the X component of the position vector.
+     *
+     * @return the X component
+     */
+    public double getX() {
+        return position.getX();
+    }
+
+    /**
+     * Get the rounded X component of the position vector.
+     *
+     * @return the rounded X component
+     */
+    public int getBlockX() {
+        return (int) Math.floor(position.getX());
     }
 
     /**
@@ -257,9 +276,26 @@ public class Location extends Vector3Impl {
      * @return a new immutable instance
      */
     public Location setX(double x) {
-        return new Location(extent, this.withX(x), yaw, pitch);
+        return new Location(extent, position.withX(x), yaw, pitch);
     }
 
+    /**
+     * Get the Y component of the position vector.
+     *
+     * @return the Y component
+     */
+    public double getY() {
+        return position.getY();
+    }
+
+    /**
+     * Get the rounded Y component of the position vector.
+     *
+     * @return the rounded Y component
+     */
+    public int getBlockY() {
+        return (int) Math.floor(position.getY());
+    }
 
     /**
      * Return a copy of this object with the Y component of the new object
@@ -269,7 +305,25 @@ public class Location extends Vector3Impl {
      * @return a new immutable instance
      */
     public Location setY(double y) {
-        return new Location(extent, this.withY(y), yaw, pitch);
+        return new Location(extent, position.withY(y), yaw, pitch);
+    }
+
+    /**
+     * Get the Z component of the position vector.
+     *
+     * @return the Z component
+     */
+    public double getZ() {
+        return position.getZ();
+    }
+
+    /**
+     * Get the rounded Z component of the position vector.
+     *
+     * @return the rounded Z component
+     */
+    public int getBlockZ() {
+        return (int) Math.floor(position.getZ());
     }
 
     /**
@@ -280,7 +334,7 @@ public class Location extends Vector3Impl {
      * @return a new immutable instance
      */
     public Location setZ(double z) {
-        return new Location(extent, this.withZ(z), yaw, pitch);
+        return new Location(extent, position.withZ(z), yaw, pitch);
     }
 
     /**
@@ -293,18 +347,6 @@ public class Location extends Vector3Impl {
         return new Location(extent, position, yaw, pitch);
     }
 
-    @Override public Location clampY(int min, int max) {
-        checkArgument(min <= max, "minimum cannot be greater than maximum");
-        if (getY() < min) {
-            return new Location(extent, getX(), min, getZ());
-        }
-        if (getY() > max) {
-            return new Location(extent, getX(), max, getZ());
-        }
-        return this;
-
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -314,12 +356,19 @@ public class Location extends Vector3Impl {
 
         if (Double.doubleToLongBits(pitch) != Double.doubleToLongBits(location.pitch)) return false;
         if (Double.doubleToLongBits(yaw) != Double.doubleToLongBits(location.yaw)) return false;
-        if (this.getX() != location.getX()) return false;
-        if (this.getZ() != location.getZ()) return false;
-        if (this.getY() != location.getY()) return false;
+        if (!position.equals(location.position)) return false;
         if (!extent.equals(location.extent)) return false;
 
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = extent.hashCode();
+        result = 31 * result + position.hashCode();
+        result = 31 * result + Float.floatToIntBits(this.pitch);
+        result = 31 * result + Float.floatToIntBits(this.yaw);
+        return result;
     }
 
 }

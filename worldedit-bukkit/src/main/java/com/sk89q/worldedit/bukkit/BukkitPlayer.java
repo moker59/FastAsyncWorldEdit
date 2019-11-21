@@ -71,29 +71,12 @@ public class BukkitPlayer extends AbstractPlayerActor {
     private WorldEditPlugin plugin;
 
     public BukkitPlayer(Player player) {
-        super(getExistingMap(WorldEditPlugin.getInstance(), player));
-        this.plugin = WorldEditPlugin.getInstance();
-        this.player = player;
+        this(WorldEditPlugin.getInstance(), player);
     }
 
     public BukkitPlayer(WorldEditPlugin plugin, Player player) {
         this.plugin = plugin;
         this.player = player;
-        init();
-    }
-
-    private void init() {
-        if (Settings.IMP.CLIPBOARD.USE_DISK) {
-            loadClipboardFromDisk();
-        }
-    }
-
-    private static Map<String, Object> getExistingMap(WorldEditPlugin plugin, Player player) {
-        BukkitPlayer cached = plugin.getCachedPlayer(player);
-        if (cached != null) {
-            return cached.getRawMeta();
-        }
-        return new ConcurrentHashMap<>();
     }
 
     @Override
@@ -129,33 +112,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public void giveItem(BaseItemStack itemStack) {
-        final PlayerInventory inv = player.getInventory();
-        ItemStack newItem = BukkitAdapter.adapt(itemStack);
-        if (itemStack.getType().getId().equalsIgnoreCase(WorldEdit.getInstance().getConfiguration().wandItem)) {
-            inv.remove(newItem);
-        }
-        final ItemStack item = player.getInventory().getItemInMainHand();
-        player.getInventory().setItemInMainHand(newItem);
-        HashMap<Integer, ItemStack> overflow = inv.addItem(item);
-        if (!overflow.isEmpty()) {
-            TaskManager.IMP.sync(new RunnableVal<Object>() {
-                @Override
-                public void run(Object value) {
-                    for (Map.Entry<Integer, ItemStack> entry : overflow.entrySet()) {
-                        ItemStack stack = entry.getValue();
-                        if (stack.getType() != Material.AIR && stack.getAmount() > 0) {
-                            Item
-                                dropped = player.getWorld().dropItem(player.getLocation(), stack);
-                            PlayerDropItemEvent event = new PlayerDropItemEvent(player, dropped);
-                            if (event.isCancelled()) {
-                                dropped.remove();
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        player.updateInventory();
+        player.getInventory().addItem(BukkitAdapter.adapt(itemStack));
     }
 
     @Override
@@ -182,7 +139,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
     @Override
     public void printError(String msg) {
         for (String part : msg.split("\n")) {
-            player.sendMessage("§c" + part);
+            player.sendMessage("\u00A7c" + part);
         }
     }
 
@@ -193,15 +150,8 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public void setPosition(Vector3 pos, float pitch, float yaw) {
-        org.bukkit.World world = player.getWorld();
-        if (pos instanceof com.sk89q.worldedit.util.Location) {
-            com.sk89q.worldedit.util.Location loc = (com.sk89q.worldedit.util.Location) pos;
-            Extent extent = loc.getExtent();
-            if (extent instanceof World) {
-                world = Bukkit.getWorld(((World) extent).getName());
-            }
-        }
-        player.teleport(new Location(world, pos.getX(), pos.getY(), pos.getZ(), yaw, pitch));
+        player.teleport(new Location(player.getWorld(), pos.getX(), pos.getY(),
+                pos.getZ(), yaw, pitch));
     }
 
     @Override
@@ -227,34 +177,8 @@ public class BukkitPlayer extends AbstractPlayerActor {
     @Override
     public boolean hasPermission(String perm) {
         return (!plugin.getLocalConfiguration().noOpPermissions && player.isOp())
-            || plugin.getPermissionsResolver().hasPermission(player.getWorld().getName(), player, perm);
-    }
-
-    @Override
-    public boolean isAllowedToFly() {
-        return player.getAllowFlight();
-    }
-
-    @Override
-    public void setFlying(boolean flying) {
-        player.setFlying(flying);
-    }
-
-    @Override
-    public void setPermission(String permission, boolean value) {
-        /*
-         *  Permissions are used to managing WorldEdit region restrictions
-         *   - The `/wea` command will give/remove the required bypass permission
-         */
-        if (Fawe.<FaweBukkit>imp().getVault() == null || Fawe.<FaweBukkit> imp().getVault().permission == null) {
-            player.addAttachment(plugin).setPermission(permission, value);
-        } else if (value) {
-            if (!Fawe.<FaweBukkit> imp().getVault().permission.playerAdd(player, permission)) {
-                player.addAttachment(plugin).setPermission(permission, value);
-            }
-        } else if (!Fawe.<FaweBukkit>imp().getVault().permission.playerRemove(player, permission)) {
-            player.addAttachment(plugin).setPermission(permission, value);
-        }
+                || plugin.getPermissionsResolver().hasPermission(
+                        player.getWorld().getName(), player, perm);
     }
 
     @Override
@@ -273,13 +197,17 @@ public class BukkitPlayer extends AbstractPlayerActor {
     }
 
     public Player getPlayer() {
-        if (!player.isValid()) {
-            Player tmp = Bukkit.getPlayer(getUniqueId());
-            if (tmp != null) {
-                player = tmp;
-            }
-        }
         return player;
+    }
+
+    @Override
+    public boolean isAllowedToFly() {
+        return player.getAllowFlight();
+    }
+
+    @Override
+    public void setFlying(boolean flying) {
+        player.setFlying(flying);
     }
 
     @Override
@@ -311,7 +239,7 @@ public class BukkitPlayer extends AbstractPlayerActor {
 
     @Override
     public SessionKey getSessionKey() {
-        return new SessionKeyImpl(getUniqueId(), getName());
+        return new SessionKeyImpl(this.player.getUniqueId(), player.getName());
     }
 
     private static class SessionKeyImpl implements SessionKey {
@@ -369,17 +297,5 @@ public class BukkitPlayer extends AbstractPlayerActor {
                 }
             }
         }
-    }
-
-    @Override
-    public void sendTitle(String title, String sub) {
-        player.sendTitle(ChatColor.GOLD + title, ChatColor.GOLD + sub, 0, 70, 20);
-        Bukkit.getServer().dispatchCommand(player, "title " + getName() + " subtitle [{\"text\":\"" + sub + "\",\"color\":\"gold\"}]");
-        Bukkit.getServer().dispatchCommand(player, "title " + getName() + " title [{\"text\":\"" + title + "\",\"color\":\"gold\"}]");
-    }
-
-    @Override
-    public void unregister() {
-        player.removeMetadata("WE", WorldEditPlugin.getInstance());
     }
 }

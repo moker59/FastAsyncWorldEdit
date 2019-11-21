@@ -31,8 +31,6 @@ import java.util.List;
 public class CommandRegistrationHandler {
 
     private static final CommandPermissionsConditionGenerator PERM_GEN = new CommandPermissionsConditionGenerator();
-    private static final CommandQueuedConditionGenerator QUEUED_GEN = new CommandQueuedConditionGenerator();
-
 
     private final List<CommandCallListener> callListeners;
 
@@ -47,11 +45,6 @@ public class CommandRegistrationHandler {
         if (registration instanceof CommandPermissionsConditionGenerator.Registration) {
             ((CommandPermissionsConditionGenerator.Registration) registration).commandPermissionsConditionGenerator(
                 PERM_GEN
-            );
-        }
-        if (registration instanceof CommandQueuedConditionGenerator.Registration) {
-            ((CommandQueuedConditionGenerator.Registration) registration).commandQueuedConditionGenerator(
-                    QUEUED_GEN
             );
         }
         registration.build();

@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public interface BlockStateHolder<B extends BlockStateHolder<B>> extends FawePattern, TileEntityBlock {
+public interface BlockStateHolder<B extends BlockStateHolder<B>> extends Pattern {
 
     /**
      * Get the block type
@@ -45,42 +45,6 @@ public interface BlockStateHolder<B extends BlockStateHolder<B>> extends FawePat
      * @return The type
      */
     BlockType getBlockType();
-
-    /**
-     * Magic number (legacy uses)
-     * @param propertyId
-     * @return
-     */
-    @Deprecated
-    B withPropertyId(int propertyId);
-
-    /**
-     * Get combined id (legacy uses)
-     * @return
-     */
-    @Deprecated
-    int getInternalId();
-
-    @Deprecated
-    int getOrdinal();
-
-    @Deprecated
-    char getOrdinalChar();
-
-    BlockMaterial getMaterial();
-
-    /**
-     * Get type id (legacy uses)
-     * @return
-     */
-    @Deprecated
-    int getInternalBlockTypeId();
-    /**
-     * Get the block data (legacy uses)
-     * @return
-     */
-    @Deprecated
-    int getInternalPropertiesId();
 
     /**
      * Returns a BlockState with the given state and value applied.
@@ -92,29 +56,12 @@ public interface BlockStateHolder<B extends BlockStateHolder<B>> extends FawePat
     <V> B with(final Property<V> property, final V value);
 
     /**
-     * Returns a BlockStateHolder with the given state and value applied.
-     *
-     * @param property The property key
-     * @param value The value
-     * @return The modified state, or same if could not be applied
-     */
-    <V> B with(final PropertyKey property, final V value);
-
-    /**
      * Gets the value at the given state
      *
      * @param property The state
      * @return The value
      */
     <V> V getState(Property<V> property);
-
-    /**
-     * Gets the value at the given state
-     *
-     * @param property The state
-     * @return The value
-     */
-    <V> V getState(final PropertyKey property);
 
     /**
      * Gets an immutable collection of the states.
@@ -156,57 +103,6 @@ public interface BlockStateHolder<B extends BlockStateHolder<B>> extends FawePat
     @Override
     default BaseBlock apply(BlockVector3 position) {
         return toBaseBlock();
-    }
-
-    void applyTileEntity(OutputExtent output, int x, int y, int z);
-
-    /**
-     * Return the name of the title entity ID.
-     *
-     * @return tile entity ID, non-null string
-     */
-    default String getNbtId() {
-        return "";
-    }
-
-    /**
-     * Returns whether the block contains NBT data. {@link #getNbtData()}
-     * must not return null if this method returns true.
-     *
-     * @return true if there is NBT data
-     */
-    default boolean hasNbtData() {
-        return false;
-    }
-
-    /**
-     * Get the object's NBT data (tile entity data). The returned tag, if
-     * modified in any way, should be sent to {@link #setNbtData(CompoundTag)}
-     * so that the instance knows of the changes. Making changes without
-     * calling {@link #setNbtData(CompoundTag)} could have unintended
-     * consequences.
-     *
-     * <p>{@link #hasNbtData()} must return true if and only if method does
-     * not return null.</p>
-     *
-     * @return compound tag, or null
-     */
-    @Nullable
-    default CompoundTag getNbtData() {
-        return null;
-    }
-
-    /**
-     * Set the object's NBT data (tile entity data).
-     *
-     * @param nbtData NBT data, or null if no data
-     */
-    default void setNbtData(@Nullable CompoundTag nbtData) {
-        throw new UnsupportedOperationException("State is immutable");
-    }
-
-    default BaseBlock toBaseBlock(ITileInput input, int x, int y, int z) {
-        throw new UnsupportedOperationException("State is immutable");
     }
 
     default String getAsString() {

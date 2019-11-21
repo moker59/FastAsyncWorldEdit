@@ -50,7 +50,7 @@ public class SuperPickaxeCommands {
     public void single(Player player, LocalSession session) throws WorldEditException {
         session.setSuperPickaxe(new SinglePickaxe());
         session.enableSuperPickAxe();
-        player.print(BBC.SUPERPICKAXE_AREA_ENABLED.s());
+        player.print("Mode changed. Left click with a pickaxe. // to disable.");
     }
 
     @Command(
@@ -65,13 +65,13 @@ public class SuperPickaxeCommands {
         LocalConfiguration config = we.getConfiguration();
 
         if (range > config.maxSuperPickaxeSize) {
-            BBC.TOOL_RANGE_ERROR.send(player, config.maxSuperPickaxeSize);
+            player.printError("Maximum range: " + config.maxSuperPickaxeSize);
             return;
         }
 
         session.setSuperPickaxe(new AreaPickaxe(range));
         session.enableSuperPickAxe();
-        player.print(BBC.SUPERPICKAXE_AREA_ENABLED.s());
+        player.print("Mode changed. Left click with a pickaxe. // to disable.");
     }
 
     @Command(
@@ -87,12 +87,12 @@ public class SuperPickaxeCommands {
         LocalConfiguration config = we.getConfiguration();
 
         if (range > config.maxSuperPickaxeSize) {
-            BBC.TOOL_RANGE_ERROR.send(player, config.maxSuperPickaxeSize);
+            player.printError("Maximum range: " + config.maxSuperPickaxeSize);
             return;
         }
 
         session.setSuperPickaxe(new RecursivePickaxe(range));
         session.enableSuperPickAxe();
-        player.print(BBC.SUPERPICKAXE_AREA_ENABLED.s());
+        player.print("Mode changed. Left click with a pickaxe. // to disable.");
     }
 }

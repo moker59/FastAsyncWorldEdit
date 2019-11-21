@@ -26,39 +26,16 @@ import javax.annotation.Nullable;
 
 public class EnumProperty extends AbstractProperty<String> {
 
-    private Map<CharSequence, Integer> offsets = new HashMap<>();
-
     public EnumProperty(final String name, final List<String> values) {
-        this(name, values, 0);
-    }
-
-    private EnumProperty(final String name, final List<String> values, int bitOffset) {
-        super(name, values, bitOffset);
-        for (int i = 0; i < values.size(); i++) {
-            String value = values.get(i).intern();
-            values.set(i, value);
-            offsets.put(value, i);
-        }
-    }
-
-    @Override
-    public EnumProperty withOffset(int bitOffset) {
-        return new EnumProperty(getName(), getValues(), bitOffset);
-    }
-
-    @Override
-    public int getIndexFor(CharSequence string) throws IllegalArgumentException {
-        Integer value = offsets.get(string);
-        return value == null ? -1 : value;
+        super(name, values);
     }
 
     @Nullable
     @Override
     public String getValueFor(String string) {
-        Integer offset = offsets.get(string);
-        if (offset == null) {
+        if (!getValues().contains(string)) {
             throw new IllegalArgumentException("Invalid value: " + string + ". Must be in " + getValues().toString());
         }
-        return getValues().get(offset);
+        return string;
     }
 }

@@ -68,7 +68,6 @@ import java.util.Set;
  * Reads schematic files that are compatible with MCEdit and other editors.
  * @deprecated Use SchematicStreamer
  */
-@Deprecated
 public class MCEditSchematicReader extends NBTSchematicReader {
 
     private static final Logger log = LoggerFactory.getLogger(MCEditSchematicReader.class);
@@ -210,9 +209,6 @@ public class MCEditSchematicReader extends NBTSchematicReader {
             }
             if (values.isEmpty()) {
                 t = null;
-            }
-            if (values.isEmpty()) {
-                t = null;
             } else {
                 t = new CompoundTag(values);
             }
@@ -248,8 +244,13 @@ public class MCEditSchematicReader extends NBTSchematicReader {
                                 clipboard.setBlock(region.getMinimumPoint().add(pt), state);
                             }
                         } else {
-                            log.warn("Unknown block when pasting schematic: "
-                                             + blocks[index] + ":" + blockData[index] + ". Please report this issue.");
+                            short block = blocks[index];
+                            byte data = blockData[index];
+                            int combined = block << 8 | data;
+                            if (unknownBlocks.add(combined)) {
+                                log.warn("Unknown block when loading schematic: "
+                                        + block + ":" + data + ". Please report this issue.");
+                            }
                         }
                     } catch (WorldEditException ignored) { // BlockArrayClipboard won't throw this
                     }

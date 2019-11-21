@@ -76,19 +76,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * Transforms blocks themselves (but not their position) according to a
  * given transform.
  */
-public class BlockTransformExtent extends ResettableExtent {
+public class BlockTransformExtent extends AbstractDelegateExtent {
 
-    private Transform transform;
-
-    private Transform transformInverse;
-    private int[] BLOCK_ROTATION_BITMASK;
-    private int[][] BLOCK_TRANSFORM;
-    private int[][] BLOCK_TRANSFORM_INVERSE;
-    private int[] ALL = new int[0];
-
-    public BlockTransformExtent(Extent parent) {
-        this(parent, new AffineTransform());
-    }
+    private final Transform transform;
 
     /**
      * Create a new instance.
@@ -99,300 +89,6 @@ public class BlockTransformExtent extends ResettableExtent {
         super(extent);
         checkNotNull(transform);
         this.transform = transform;
-        this.transformInverse = this.transform.inverse();
-        cache();
-    }
-
-
-    private static long combine(Direction... directions) {
-        return Arrays.stream(directions).mapToLong(dir -> (1L << dir.ordinal()))
-            .reduce(0, (a, b) -> a | b);
-    }
-
-    private static long[] adapt(Direction... dirs) {
-        return Arrays.stream(dirs).mapToLong(dir -> 1L << dir.ordinal()).toArray();
-    }
-
-    private static long[] adapt(Long... dirs) {
-        return Arrays.stream(dirs).mapToLong(dir -> dir).toArray();
-    }
-
-    private static long[] getDirections(AbstractProperty property) {
-        if (property instanceof DirectionalProperty) {
-            DirectionalProperty directional = (DirectionalProperty) property;
-            return adapt(directional.getValues().toArray(new Direction[0]));
-        } else {
-            List values = property.getValues();
-            switch (property.getKey()) {
-                case HALF:
-                    return adapt(UP, DOWN);
-                case ROTATION: {
-                    List<Direction> directions = new ArrayList<>();
-                    for (Object value : values) {
-                        directions.add(Direction.fromRotationIndex((Integer) value).get());
-                    }
-                    return adapt(directions.toArray(new Direction[0]));
-                }
-                case AXIS:
-                    switch (property.getValues().size()) {
-                        case 3:
-                            return adapt(combine(EAST, WEST), combine(UP, DOWN), combine(SOUTH, NORTH));
-                        case 2:
-                            return adapt(combine(EAST, WEST), combine(SOUTH, NORTH));
-                        default:
-                            System.out.println("Invalid " + property.getName() + " " + property.getValues());
-                            return null;
-                    }
-                case FACING: {
-                    List<Direction> directions = new ArrayList<>();
-                    for (Object value : values) {
-                        directions.add(Direction.valueOf(value.toString().toUpperCase(Locale.ROOT)));
-                    }
-                    return adapt(directions.toArray(new Direction[0]));
-                }
-                case SHAPE:
-                    if (values.contains("straight")) {
-                        ArrayList<Long> result = new ArrayList<>();
-                        for (Object value : values) {
-                            // [straight, inner_left, inner_right, outer_left, outer_right]
-                            switch (value.toString()) {
-                                case "straight":
-                                    result.add(combine(NORTH, EAST, SOUTH, WEST));
-                                    continue;
-                                case "inner_left":
-                                    result.add(notIndex(combine(NORTHEAST, NORTHWEST, SOUTHWEST, SOUTHEAST), property.getIndexFor("outer_right"), property.getIndexFor("outer_left")));
-                                    continue;
-                                case "inner_right":
-                                    result.add(notIndex(combine(NORTHEAST, NORTHWEST, SOUTHWEST, SOUTHEAST), property.getIndexFor("outer_right"), property.getIndexFor("outer_left")));
-                                    continue;
-                                case "outer_left":
-                                    result.add(notIndex(combine(NORTHEAST, NORTHWEST, SOUTHWEST, SOUTHEAST), property.getIndexFor("inner_left"), property.getIndexFor("inner_right")));
-                                    continue;
-                                case "outer_right":
-                                    result.add(notIndex(combine(NORTHEAST, NORTHWEST, SOUTHWEST, SOUTHEAST), property.getIndexFor("inner_left"), property.getIndexFor("inner_right")));
-                                    continue;
-                                default:
-                                    System.out.println("Unknown direction " + value);
-                                    result.add(0L);
-                            }
-                        }
-                        return adapt(result.toArray(new Long[0]));
-                    } else {
-                        List<Long> directions = new ArrayList<>();
-                        for (Object value : values) {
-                            switch (value.toString()) {
-                                case "north_south":
-                                    directions.add(combine(NORTH, SOUTH));
-                                    break;
-                                case "east_west":
-                                    directions.add(combine(EAST, WEST));
-                                    break;
-                                case "ascending_east":
-                                    directions.add(combine(ASCENDING_EAST));
-                                    break;
-                                case "ascending_west":
-                                    directions.add(combine(ASCENDING_WEST));
-                                    break;
-                                case "ascending_north":
-                                    directions.add(combine(ASCENDING_NORTH));
-                                    break;
-                                case "ascending_south":
-                                    directions.add(combine(ASCENDING_SOUTH));
-                                    break;
-                                case "south_east":
-                                    directions.add(combine(SOUTHEAST));
-                                    break;
-                                case "south_west":
-                                    directions.add(combine(SOUTHWEST));
-                                    break;
-                                case "north_west":
-                                    directions.add(combine(NORTHWEST));
-                                    break;
-                                case "north_east":
-                                    directions.add(combine(NORTHEAST));
-                                    break;
-                                default:
-                                    System.out.println("Unknown direction " + value);
-                                    directions.add(0L);
-                            }
-                        }
-                        return adapt(directions.toArray(new Long[0]));
-                    }
-            }
-        }
-        return null;
-    }
-
-    private static boolean hasDirection(long mask, Direction dir) {
-        return (mask & (1L << dir.ordinal())) != 0;
-    }
-
-    private static long notIndex(long mask, int... indexes) {
-        mask |= Arrays.stream(indexes).mapToLong(index -> (1L << (index + values().length))).reduce(0, (a, b) -> a | b);
-        return mask;
-    }
-
-    private static boolean hasIndex(long mask, int index) {
-        return ((mask >> values().length) & (1 << index)) == 0;
-    }
-
-    @Nullable
-    private static Integer getNewStateIndex(Transform transform, long[] directions, int oldIndex) {
-        long oldDirMask = directions[oldIndex];
-        if (oldDirMask == 0) {
-            return null;
-        }
-        Integer newIndex = null;
-
-        for (Direction oldDirection : values()) {
-            if (!hasDirection(oldDirMask, oldDirection)) {
-                continue;
-            }
-            Vector3 oldVector = oldDirection.toVector();
-            Vector3 newVector = transform.apply(oldVector).subtract(transform.apply(Vector3.ZERO)).normalize();
-            boolean flip = false;
-
-            if (transform instanceof AffineTransform) {
-                flip = ((AffineTransform) transform).isScaled(oldVector);
-            }
-
-            if (oldVector.equals(newVector)) {
-                continue;
-            }
-
-            double closest = oldVector.normalize().dot(newVector);
-            for (int i = 0; i < directions.length; i++) {
-                int j = (oldIndex + i) % directions.length;
-                long newDirMask = directions[j];
-                if (!hasIndex(oldDirMask, j)) {
-                    continue;
-                }
-                for (Direction v : Direction.values()) {
-                    // Check if it's one of the current directions
-                    if (!hasDirection(newDirMask, v)) {
-                        continue;
-                    }
-                    // Check if the old mask excludes it
-                    double dot = v.toVector().normalize().dot(newVector);
-                    if (dot > closest || (flip && dot >= closest)) { //
-                        closest = dot;
-                        newIndex = j;
-                    }
-                }
-            }
-            if (newIndex != null) return newIndex;
-        }
-        return newIndex;
-    }
-
-    private static boolean isDirectional(Property property) {
-        if (property instanceof DirectionalProperty) {
-            return true;
-        }
-        switch (property.getKey()) {
-            case HALF:
-            case ROTATION:
-            case AXIS:
-            case FACING:
-            case SHAPE:
-            case NORTH:
-            case EAST:
-            case SOUTH:
-            case WEST:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    private static BaseBlock transformBaseBlockNBT(BlockState transformed, CompoundTag tag, Transform transform) {
-        if (tag != null) {
-            if (tag.containsKey("Rot")) {
-                int rot = tag.asInt("Rot");
-
-                Direction direction = MCDirections.fromRotation(rot);
-
-                if (direction != null) {
-                    Vector3 applyAbsolute = transform.apply(direction.toVector());
-                    Vector3 applyOrigin = transform.apply(Vector3.ZERO);
-                    applyAbsolute.mutX(applyAbsolute.getX() - applyOrigin.getX());
-                    applyAbsolute.mutY(applyAbsolute.getY() - applyOrigin.getY());
-                    applyAbsolute.mutZ(applyAbsolute.getZ() - applyOrigin.getZ());
-
-                    Direction newDirection = Direction.findClosest(applyAbsolute, Direction.Flag.CARDINAL | Direction.Flag.ORDINAL | Direction.Flag.SECONDARY_ORDINAL);
-
-                    if (newDirection != null) {
-                        Map<String, Tag> values = ReflectionUtils.getMap(tag.getValue());
-                        values.put("Rot", new ByteTag((byte) MCDirections.toRotation(newDirection)));
-                    }
-                }
-                return new BaseBlock(transformed, tag);
-            }
-        }
-        return transformed.toBaseBlock();
-    }
-
-    private static int transformState(BlockState state, Transform transform) {
-        int newMaskedId = state.getInternalId();
-
-        BlockType type = state.getBlockType();
-        // Rotate North, East, South, West
-        if (type.hasProperty(PropertyKey.NORTH) && type.hasProperty(PropertyKey.EAST) && type.hasProperty(PropertyKey.SOUTH) && type.hasProperty(PropertyKey.WEST)) {
-            Direction newNorth = findClosest(transform.apply(NORTH.toVector()), Flag.CARDINAL);
-            Direction newEast = findClosest(transform.apply(EAST.toVector()), Flag.CARDINAL);
-            Direction newSouth = findClosest(transform.apply(SOUTH.toVector()), Flag.CARDINAL);
-            Direction newWest = findClosest(transform.apply(WEST.toVector()), Flag.CARDINAL);
-
-            BlockState tmp = state;
-
-            Object northState = tmp.getState(PropertyKey.NORTH);
-            Object eastState = tmp.getState(PropertyKey.EAST);
-            Object southState = tmp.getState(PropertyKey.SOUTH);
-            Object westState = tmp.getState(PropertyKey.WEST);
-
-            tmp = tmp.with(PropertyKey.valueOf(newNorth.name().toUpperCase(Locale.ROOT)), northState);
-            tmp = tmp.with(PropertyKey.valueOf(newEast.name().toUpperCase(Locale.ROOT)), eastState);
-            tmp = tmp.with(PropertyKey.valueOf(newSouth.name().toUpperCase(Locale.ROOT)), southState);
-            tmp = tmp.with(PropertyKey.valueOf(newWest.name().toUpperCase(Locale.ROOT)), westState);
-
-            newMaskedId = tmp.getInternalId();
-        }
-
-        for (AbstractProperty property : (List<AbstractProperty<?>>) type.getProperties()) {
-            if (isDirectional(property)) {
-                long[] directions = getDirections(property);
-                if (directions != null) {
-                    Integer newIndex = getNewStateIndex(transform, directions, property.getIndex(state.getInternalId()));
-                    if (newIndex != null) {
-                        newMaskedId = property.modifyIndex(newMaskedId, newIndex);
-                    }
-                }
-            }
-        }
-        return newMaskedId;
-    }
-
-
-    private void cache() {
-        BLOCK_ROTATION_BITMASK = new int[BlockTypes.size()];
-        BLOCK_TRANSFORM = new int[BlockTypes.size()][];
-        BLOCK_TRANSFORM_INVERSE = new int[BlockTypes.size()][];
-        for (int i = 0; i < BLOCK_TRANSFORM.length; i++) {
-            BLOCK_TRANSFORM[i] = ALL;
-            BLOCK_TRANSFORM_INVERSE[i] = ALL;
-            BlockType type = BlockTypes.get(i);
-            int bitMask = 0;
-            for (AbstractProperty property : (Collection<AbstractProperty>) (Collection) type.getProperties()) {
-                if (isDirectional(property)) {
-                    BLOCK_TRANSFORM[i] = null;
-                    BLOCK_TRANSFORM_INVERSE[i] = null;
-                    bitMask |= property.getBitMask();
-                }
-            }
-            if (bitMask != 0) {
-                BLOCK_ROTATION_BITMASK[i] = bitMask;
-            }
-        }
     }
 
     /**
@@ -430,11 +126,7 @@ public class BlockTransformExtent extends ResettableExtent {
         return super.setBlock(location, transformBlock(block, true));
     }
 
-    public void setTransform(Transform affine) {
-        this.transform = affine;
-        this.transformInverse = this.transform.inverse();
-        cache();
-    }
+    private static final Set<String> directionNames = Sets.newHashSet("north", "south", "east", "west");
 
     /**
      * Transform the given block using the given transform.
@@ -445,74 +137,173 @@ public class BlockTransformExtent extends ResettableExtent {
      * @param transform the transform
      * @return the same block
      */
-    public static <B extends BlockStateHolder<B>> B transform(@NotNull B block, @NotNull Transform transform) {
-        // performance critical
-        BlockState state = block.toImmutableState();
+    public static <B extends BlockStateHolder<B>> B transform(B block, Transform transform) {
+        checkNotNull(block);
+        checkNotNull(transform);
 
-        int transformedId = transformState(state, transform);
-        BlockState transformed = BlockState.getFromInternalId(transformedId);
-        if (block.hasNbtData()) {
-            return (B) transformBaseBlockNBT(transformed, block.getNbtData(), transform);
+        B result = block;
+        List<? extends Property<?>> properties = block.getBlockType().getProperties();
+
+        for (Property<?> property : properties) {
+            if (property instanceof DirectionalProperty) {
+                DirectionalProperty dirProp = (DirectionalProperty) property;
+                Direction value = (Direction) block.getState(property);
+                if (value != null) {
+                    Vector3 newValue = getNewStateValue(dirProp.getValues(), transform, value.toVector());
+                    if (newValue != null) {
+                        result = result.with(dirProp, Direction.findClosest(newValue, Direction.Flag.ALL));
+                    }
+                }
+            } else if (property instanceof EnumProperty) {
+                EnumProperty enumProp = (EnumProperty) property;
+                if (property.getName().equals("axis")) {
+                    // We have an axis - this is something we can do the rotations to :sunglasses:
+                    Direction value = null;
+                    switch ((String) block.getState(property)) {
+                        case "x":
+                            value = Direction.EAST;
+                            break;
+                        case "y":
+                            value = Direction.UP;
+                            break;
+                        case "z":
+                            value = Direction.NORTH;
+                            break;
+                    }
+                    if (value != null) {
+                        Vector3 newValue = getNewStateValue(Direction.valuesOf(Direction.Flag.UPRIGHT | Direction.Flag.CARDINAL), transform, value.toVector());
+                        if (newValue != null) {
+                            String axis = null;
+                            Direction newDir = Direction.findClosest(newValue, Direction.Flag.UPRIGHT | Direction.Flag.CARDINAL);
+                            if (newDir == Direction.NORTH || newDir == Direction.SOUTH) {
+                                axis = "z";
+                            } else if (newDir == Direction.EAST || newDir == Direction.WEST) {
+                                axis = "x";
+                            } else if (newDir == Direction.UP || newDir == Direction.DOWN) {
+                                axis = "y";
+                            }
+                            if (axis != null) {
+                                result = result.with(enumProp, axis);
+                            }
+                        }
+                    }
+                } else if (property.getName().equals("type") && transform instanceof AffineTransform) {
+                    // chests
+                    if (((AffineTransform) transform).isHorizontalFlip()) {
+                        String value = (String) block.getState(property);
+                        String newValue = null;
+                        if ("left".equals(value)) {
+                            newValue = "right";
+                        } else if ("right".equals(value)) {
+                            newValue = "left";
+                        }
+                        if (newValue != null && enumProp.getValues().contains(newValue)) {
+                            result = result.with(enumProp, newValue);
+                        }
+                    }
+                } else if (property.getName().equals("shape") && transform instanceof AffineTransform) {
+                    // stairs
+                    if (((AffineTransform) transform).isHorizontalFlip()) {
+                        String value = (String) block.getState(property);
+                        String newValue = null;
+                        if ("outer_left".equals(value)) {
+                            newValue = "outer_right";
+                        } else if ("outer_right".equals(value)) {
+                            newValue = "outer_left";
+                        } else if ("inner_left".equals(value)) {
+                            newValue = "inner_right";
+                        } else if ("inner_right".equals(value)) {
+                            newValue = "inner_left";
+                        }
+                        if (newValue != null && enumProp.getValues().contains(newValue)) {
+                            result = result.with(enumProp, newValue);
+                        }
+                    }
+                }
+            } else if (property instanceof IntegerProperty) {
+                IntegerProperty intProp = (IntegerProperty) property;
+                if (property.getName().equals("rotation")) {
+                    if (intProp.getValues().size() == 16) {
+                        Optional<Direction> direction = Direction.fromRotationIndex(block.getState(intProp));
+                        int horizontalFlags = Direction.Flag.CARDINAL | Direction.Flag.ORDINAL | Direction.Flag.SECONDARY_ORDINAL;
+                        if (direction.isPresent()) {
+                            Vector3 vec = getNewStateValue(Direction.valuesOf(horizontalFlags), transform, direction.get().toVector());
+                            if (vec != null) {
+                                OptionalInt newRotation = Direction.findClosest(vec, horizontalFlags).toRotationIndex();
+                                if (newRotation.isPresent()) {
+                                    result = result.with(intProp, newRotation.getAsInt());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-        return (B) (block instanceof BaseBlock ? transformed.toBaseBlock() : transformed);
-    }
 
-    private BlockState transform(BlockState state, int[][] transformArray, Transform transform) {
-        int typeId = state.getInternalBlockTypeId();
-        int[] arr = transformArray[typeId];
-        if (arr == ALL) {
-            return state;
+        Map<String, Object> directionalProperties = new HashMap<>();
+        for (Property<?> prop : properties) {
+            if (directionNames.contains(prop.getName())) {
+                if (prop instanceof BooleanProperty && (Boolean) block.getState(prop)
+                        || prop instanceof EnumProperty && !block.getState(prop).toString().equals("none")) {
+                    String origProp = prop.getName().toUpperCase(Locale.ROOT);
+                    Direction dir = Direction.valueOf(origProp);
+                    Direction closest = Direction.findClosest(transform.apply(dir.toVector()), Direction.Flag.CARDINAL);
+                    if (closest != null) {
+                        String closestProp = closest.name().toLowerCase(Locale.ROOT);
+                        if (prop instanceof BooleanProperty) {
+                            result = result.with((BooleanProperty) prop, Boolean.FALSE);
+                            directionalProperties.put(closestProp, Boolean.TRUE);
+                        } else {
+                            if (prop.getValues().contains("none")) {
+                                //noinspection unchecked
+                                result = result.with((Property<Object>) prop, "none");
+                            }
+                            directionalProperties.put(closestProp, block.getState(prop));
+                        }
+                    }
+                }
+            }
         }
-        if (arr == null) {
-            arr = transformArray[typeId] = new int[state.getBlockType().getMaxStateId() + 1];
-            Arrays.fill(arr, -1);
-        }
-        int mask = BLOCK_ROTATION_BITMASK[typeId];
-        int internalId = state.getInternalId();
 
-        int maskedId = internalId & mask;
-        int newMaskedId = arr[maskedId >> BlockTypesCache.BIT_OFFSET];
-        if (newMaskedId != -1) {
-            return BlockState.getFromInternalId(newMaskedId | (internalId & (~mask)));
+        if (!directionalProperties.isEmpty()) {
+            for (String directionName : directionNames) {
+                Property<Object> dirProp = block.getBlockType().getProperty(directionName);
+                result = result.with(dirProp, directionalProperties.get(directionName));
+            }
         }
 
-        newMaskedId = transformState(state, transform);
-
-        arr[maskedId >> BlockTypesCache.BIT_OFFSET] = newMaskedId & mask;
-        return BlockState.getFromInternalId(newMaskedId);
+        return result;
     }
 
-    public final BaseBlock transform(BlockStateHolder<BaseBlock> block) {
-        BlockState transformed = transform(block.toImmutableState());
-        if (block.hasNbtData()) {
-            return transformBaseBlockNBT(transformed, block.getNbtData(), transform);
+    /**
+     * Get the new value with the transformed direction.
+     *
+     * @param allowedStates the allowed states
+     * @param transform the transform
+     * @param oldDirection the old direction to transform
+     * @return a new state or null if none could be found
+     */
+    @Nullable
+    private static Vector3 getNewStateValue(List<Direction> allowedStates, Transform transform, Vector3 oldDirection) {
+        Vector3 newDirection = transform.apply(oldDirection).subtract(transform.apply(Vector3.ZERO)).normalize();
+        Vector3 newValue = null;
+        double closest = -2;
+        boolean found = false;
+
+        for (Direction v : allowedStates) {
+            double dot = v.toVector().normalize().dot(newDirection);
+            if (dot >= closest) {
+                closest = dot;
+                newValue = v.toVector();
+                found = true;
+            }
         }
-        return transformed.toBaseBlock();
-    }
 
-    protected final BlockStateHolder transformInverse(BlockStateHolder block) {
-        BlockState transformed = transformInverse(block.toImmutableState());
-        if (block.hasNbtData()) {
-            return transformBaseBlockNBT(transformed, block.getNbtData(), transformInverse);
+        if (found) {
+            return newValue;
+        } else {
+            return null;
         }
-        return transformed;
     }
 
-    public final BlockState transform(BlockState block) {
-        return transform(block, BLOCK_TRANSFORM, transform);
-    }
-
-    private BlockState transformInverse(BlockState block) {
-        return transform(block, BLOCK_TRANSFORM_INVERSE, transformInverse);
-    }
-
-    @Override
-    public BlockState getBlock(int x, int y, int z) {
-        return transform(super.getBlock(x, y, z));
-    }
-
-    @Override
-    public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block) throws WorldEditException {
-        return super.setBlock(x, y, z, transformInverse(block));
-    }
 }

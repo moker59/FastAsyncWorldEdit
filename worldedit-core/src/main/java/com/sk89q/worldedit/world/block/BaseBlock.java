@@ -52,28 +52,13 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
     private BlockState blockState;
     @Nullable private CompoundTag nbtData;
 
-    @Deprecated
-    public BaseBlock() {
-        this(BlockTypes.AIR.getDefaultState());
-    }
-
-    /**
-     * Construct a block with the given type and default data.
-     * @deprecated Just use the BlockType.getDefaultState()
-     * @param blockType The block type
-     */
-    @Deprecated
-    public BaseBlock(BlockType blockType) {
-        this(blockType.getDefaultState());
-    }
     /**
      * Construct a block with a state.
      *
      * @param blockState The blockstate
      */
-    public BaseBlock(BlockState blockState) {
+    protected BaseBlock(BlockState blockState) {
         this.blockState = blockState;
-        nbtData = null;
     }
 
     /**
@@ -82,29 +67,10 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
      * @param state The block state
      * @param nbtData NBT data, which must be provided
      */
-    public BaseBlock(BlockState state, CompoundTag nbtData) {
+    protected BaseBlock(BlockState state, CompoundTag nbtData) {
         checkNotNull(nbtData);
         this.blockState = state;
         this.nbtData = nbtData;
-    }
-
-    /**
-     * Construct a block with the given ID and data value.
-     *
-     * @param id ID value
-     * @param data data value
-     */
-    @Deprecated
-    public BaseBlock(int id, int data) {
-        this(getState(id, data));
-    }
-
-    public static BlockState getState(int id, int data) {
-        BlockState blockState = LegacyMapper.getInstance().getBlockFromLegacy(id, data);
-        if (blockState == null) {
-            blockState = BlockTypes.AIR.getDefaultState();
-        }
-        return blockState;
     }
 
     /**
@@ -114,7 +80,7 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
      */
     @Override
     public Map<Property<?>, Object> getStates() {
-        return toImmutableState().getStates();
+        return this.blockState.getStates();
     }
 
     @Override
@@ -124,7 +90,7 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
 
     @Override
     public <V> BaseBlock with(Property<V> property, V value) {
-        return toImmutableState().with(property, value).toBaseBlock(getNbtData());
+        return this.blockState.with(property, value).toBaseBlock(getNbtData());
     }
 
     /**
@@ -135,7 +101,7 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
      */
     @Override
     public <V> V getState(Property<V> property) {
-        return toImmutableState().getState(property);
+        return this.blockState.getState(property);
     }
 
     @Override
@@ -163,6 +129,11 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
         return this.nbtData;
     }
 
+    @Override
+    public void setNbtData(@Nullable CompoundTag nbtData) {
+        throw new UnsupportedOperationException("This class is immutable.");
+    }
+
     /**
      * Checks whether the type ID and data value are equal.
      */
@@ -180,24 +151,9 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
         return this.blockState.equalsFuzzy(otherBlock.blockState) && Objects.equals(getNbtData(), otherBlock.getNbtData());
     }
 
-    @Override
-    public int getInternalId() {
-        return blockState.getInternalId();
-    }
-
-    @Override
-    public BlockMaterial getMaterial() {
-        return blockState.getMaterial();
-    }
-
-    @Override
-    public int getOrdinal() {
-        return blockState.getOrdinal();
-    }
-
     /**
      * Checks if the type is the same, and if the matched states are the same.
-     *
+     * 
      * @param o other block
      * @return true if equal
      */
@@ -212,45 +168,8 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
     }
 
     @Override
-    public final char getOrdinalChar() {
-        return blockState.getOrdinalChar();
-    }
-
-    @Override
     public BaseBlock toBaseBlock() {
         return this;
-    }
-
-    @Override
-    public boolean apply(Extent extent, BlockVector3 get, BlockVector3 set) throws WorldEditException {
-        set.setFullBlock(extent, this);
-        return true;
-    }
-
-    @Override
-    public void applyTileEntity(OutputExtent output, int x, int y, int z) {
-        CompoundTag nbt = getNbtData();
-        if (nbt != null) output.setTile(x, y, z, nbt);
-    }
-
-    @Override
-    public BaseBlock withPropertyId(int propertyId) {
-        return getBlockType().withPropertyId(propertyId).toBaseBlock(getNbtData());
-    }
-
-    @Override
-    public int getInternalBlockTypeId() {
-        return toImmutableState().getInternalBlockTypeId();
-    }
-
-    @Override
-    public int getInternalPropertiesId() {
-        return toImmutableState().getInternalPropertiesId();
-    }
-
-    @Override
-    public <V> BaseBlock with(PropertyKey property, V value) {
-        return toImmutableState().with(property, value).toBaseBlock(getNbtData());
     }
 
     @Override
@@ -265,13 +184,12 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
     }
 
     @Override
-    public <V> V getState(PropertyKey property) {
-        return toImmutableState().getState(property);
-    }
-
-    @Override
     public int hashCode() {
-        return getOrdinal();
+        int ret = toImmutableState().hashCode() << 3;
+        if (hasNbtData()) {
+            ret += getNbtData().hashCode();
+        }
+        return ret;
     }
 
     @Override
@@ -283,7 +201,4 @@ public class BaseBlock implements BlockStateHolder<BaseBlock>, TileEntityBlock {
 //        }
     }
 
-    public BlockState toBlockState() {
-        return blockState;
-    }
 }

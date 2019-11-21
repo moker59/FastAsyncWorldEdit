@@ -44,22 +44,18 @@ public class DownwardVisitor extends RecursiveVisitor {
      * @param baseY the base Y
      */
     public DownwardVisitor(Mask mask, RegionFunction function, int baseY) {
-        this(mask, function, baseY, Integer.MAX_VALUE);
-    }
-
-    public DownwardVisitor(Mask mask, RegionFunction function, int baseY, int depth) {
-        super(mask, function, depth);
+        super(mask, function);
         checkNotNull(mask);
 
         this.baseY = baseY;
 
-        setDirections(
-            BlockVector3.UNIT_X,
-            BlockVector3.UNIT_MINUS_X,
-            BlockVector3.UNIT_Z,
-            BlockVector3.UNIT_MINUS_Z,
-            BlockVector3.UNIT_MINUS_Y
-        );
+        Collection<BlockVector3> directions = getDirections();
+        directions.clear();
+        directions.add(BlockVector3.UNIT_X);
+        directions.add(BlockVector3.UNIT_MINUS_X);
+        directions.add(BlockVector3.UNIT_Z);
+        directions.add(BlockVector3.UNIT_MINUS_Z);
+        directions.add(BlockVector3.UNIT_MINUS_Y);
     }
 
     @Override

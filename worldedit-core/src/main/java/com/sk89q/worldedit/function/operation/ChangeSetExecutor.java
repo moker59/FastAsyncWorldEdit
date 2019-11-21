@@ -35,23 +35,7 @@ import java.util.List;
  */
 public class ChangeSetExecutor implements Operation {
 
-    public enum Type {
-        UNDO {
-            @Override
-            public void perform(Change change, UndoContext context) {
-                change.undo(context);
-            }
-        },
-        REDO {
-            @Override
-            public void perform(Change change, UndoContext context) {
-                change.redo(context);
-            }
-        }
-        ;
-
-        public void perform(Change change, UndoContext context) {}
-    }
+    public enum Type {UNDO, REDO}
 
     private final Iterator<Change> iterator;
     private final Type type;
@@ -64,16 +48,15 @@ public class ChangeSetExecutor implements Operation {
      * @param type type of change
      * @param context the undo context
      */
-    private ChangeSetExecutor(ChangeSet changeSet, Type type, UndoContext context, BlockBag blockBag, int inventory) {
+    private ChangeSetExecutor(ChangeSet changeSet, Type type, UndoContext context) {
         checkNotNull(changeSet);
         checkNotNull(type);
         checkNotNull(context);
 
         this.type = type;
         this.context = context;
-        if (changeSet instanceof FaweChangeSet) {
-            iterator = ((FaweChangeSet) changeSet).getIterator(blockBag, inventory, type == Type.REDO);
-        } else if (type == Type.UNDO) {
+
+        if (type == Type.UNDO) {
             iterator = changeSet.backwardIterator();
         } else {
             iterator = changeSet.forwardIterator();
@@ -84,8 +67,13 @@ public class ChangeSetExecutor implements Operation {
     public Operation resume(RunContext run) throws WorldEditException {
         while (iterator.hasNext()) {
             Change change = iterator.next();
-            type.perform(change, context);
+            if (type == Type.UNDO) {
+                change.undo(context);
+            } else {
+                change.redo(context);
+            }
         }
+
         return null;
     }
 
@@ -97,10 +85,6 @@ public class ChangeSetExecutor implements Operation {
     public void addStatusMessages(List<String> messages) {
     }
 
-    public static ChangeSetExecutor create(ChangeSet changeSet, UndoContext context, Type type, BlockBag blockBag, int inventory) {
-        return new ChangeSetExecutor(changeSet, type, context, blockBag, inventory);
-    }
-
     /**
      * Create a new undo operation.
      *
@@ -109,7 +93,7 @@ public class ChangeSetExecutor implements Operation {
      * @return an operation
      */
     public static ChangeSetExecutor createUndo(ChangeSet changeSet, UndoContext context) {
-        return new ChangeSetExecutor(changeSet, Type.UNDO, context, null, 0);
+        return new ChangeSetExecutor(changeSet, Type.UNDO, context);
     }
 
     /**
@@ -120,7 +104,7 @@ public class ChangeSetExecutor implements Operation {
      * @return an operation
      */
     public static ChangeSetExecutor createRedo(ChangeSet changeSet, UndoContext context) {
-        return new ChangeSetExecutor(changeSet, Type.REDO, context, null, 0);
+        return new ChangeSetExecutor(changeSet, Type.REDO, context);
     }
 
 }

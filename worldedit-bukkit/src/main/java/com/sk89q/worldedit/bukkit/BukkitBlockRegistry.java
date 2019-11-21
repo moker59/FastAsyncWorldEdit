@@ -37,42 +37,25 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 public class BukkitBlockRegistry extends BundledBlockRegistry {
-
-    private BukkitBlockMaterial[] materialMap;
+    private Map<Material, BukkitBlockMaterial> materialMap = new EnumMap<>(Material.class);
 
     @Nullable
     @Override
     public BlockMaterial getMaterial(BlockType blockType) {
-        BukkitImplAdapter adapter = WorldEditPlugin.getInstance().getBukkitImplAdapter();
-        if (adapter != null) {
-            BlockMaterial result = adapter.getMaterial(blockType);
-            if (result != null) return result;
-        }
         Material mat = BukkitAdapter.adapt(blockType);
         if (mat == null) {
-            if (blockType == BlockTypes.__RESERVED__) return new PassthroughBlockMaterial(super.getMaterial(BlockTypes.AIR));
-            return new PassthroughBlockMaterial(null);
+            return null;
         }
-        if (materialMap == null) {
-            materialMap = new BukkitBlockMaterial[Material.values().length];
-        }
-        BukkitBlockMaterial result = materialMap[mat.ordinal()];
-        if (result == null) {
-            result = new BukkitBlockMaterial(BukkitBlockRegistry.super.getMaterial(blockType), mat);
-            materialMap[mat.ordinal()] = result;
-        }
-        return result;
+        return materialMap.computeIfAbsent(mat, material -> new BukkitBlockMaterial(BukkitBlockRegistry.super.getMaterial(blockType), material));
     }
 
     @Nullable
     @Override
-    public BlockMaterial getMaterial(BlockState state) {
-        BukkitImplAdapter adapter = WorldEditPlugin.getInstance().getBukkitImplAdapter();
-        if (adapter != null) {
-            BlockMaterial result = adapter.getMaterial(state);
-            if (result != null) return result;
+    public Map<String, ? extends Property<?>> getProperties(BlockType blockType) {
+        if (WorldEditPlugin.getInstance().getBukkitImplAdapter() != null) {
+            return WorldEditPlugin.getInstance().getBukkitImplAdapter().getProperties(blockType);
         }
-        return super.getMaterial(state);
+        return super.getProperties(blockType);
     }
 
     @Override
@@ -82,15 +65,6 @@ public class BukkitBlockRegistry extends BundledBlockRegistry {
         }
         return OptionalInt.empty();
     }
-    @Nullable
-    @Override
-    public Map<String, ? extends Property<?>> getProperties(BlockType blockType) {
-        BukkitImplAdapter adapter = WorldEditPlugin.getInstance().getBukkitImplAdapter();
-        if (adapter != null) {
-            return adapter.getProperties(blockType);
-        }
-        return super.getProperties(blockType);
-    }
 
     public static class BukkitBlockMaterial extends PassthroughBlockMaterial {
 
@@ -99,10 +73,6 @@ public class BukkitBlockRegistry extends BundledBlockRegistry {
         public BukkitBlockMaterial(@Nullable BlockMaterial material, Material bukkitMaterial) {
             super(material);
             this.material = bukkitMaterial;
-        }
-
-        public int getId() {
-            return material.getId();
         }
 
         @Override
@@ -131,17 +101,5 @@ public class BukkitBlockRegistry extends BundledBlockRegistry {
         public boolean isTranslucent() {
             return material.isTransparent();
         }
-    }
-
-    @Override
-    public Collection<String> values() {
-        ArrayList<String> blocks = new ArrayList<>();
-        for (Material m : Material.values()) {
-            if (!m.isLegacy() && m.isBlock()) {
-                BlockData blockData = m.createBlockData();
-                blocks.add(blockData.getAsString());
-            }
-        }
-        return blocks;
     }
 }

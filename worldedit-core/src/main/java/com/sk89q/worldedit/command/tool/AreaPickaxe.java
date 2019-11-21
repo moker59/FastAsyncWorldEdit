@@ -66,18 +66,20 @@ public class AreaPickaxe implements BlockTool {
 
             try {
                 for (int x = ox - range; x <= ox + range; ++x) {
-					for (int y = oy - range; y <= oy + range; ++y) {
+                    for (int y = oy - range; y <= oy + range; ++y) {
                         for (int z = oz - range; z <= oz + range; ++z) {
-                            if (initialType.equals(editSession.getBlock(x, y, z))) {
+                            BlockVector3 pos = BlockVector3.at(x, y, z);
+                            if (editSession.getBlock(pos).getBlockType() != initialType) {
                                 continue;
                             }
 
-                            editSession.setBlock(x, y, z, BlockTypes.AIR.getDefaultState());
+                            editSession.setBlock(pos, BlockTypes.AIR.getDefaultState());
 
+                            ((World) clicked.getExtent()).queueBlockBreakEffect(server, pos, initialType,
+                                    clicked.toVector().toBlockPoint().distanceSq(pos));
                         }
                     }
                 }
-                editSession.flushQueue();
             } catch (MaxChangedBlocksException e) {
                 player.printError("Max blocks change limit reached.");
             } finally {

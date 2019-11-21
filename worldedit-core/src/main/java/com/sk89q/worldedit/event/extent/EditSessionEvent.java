@@ -59,14 +59,13 @@ import javax.annotation.Nullable;
  * and block interceptors intercept at BOTH {@link Stage#BEFORE_CHANGE} and
  * {@link Stage#BEFORE_HISTORY}.</p>
  */
-public class EditSessionEvent extends Event implements Cancellable {
+public class EditSessionEvent extends Event {
 
     private final World world;
     private final Actor actor;
     private final int maxBlocks;
     private final Stage stage;
     private Extent extent;
-    private boolean cancelled;
 
     /**
      * Create a new event.
@@ -137,16 +136,6 @@ public class EditSessionEvent extends Event implements Cancellable {
     public void setExtent(Extent extent) {
         checkNotNull(extent);
         this.extent = extent;
-    }
-
-    @Override
-    public boolean isCancelled() {
-        return cancelled;
-    }
-
-    @Override
-    public void setCancelled(boolean cancelled) {
-        this.cancelled = cancelled;
     }
 
     /**

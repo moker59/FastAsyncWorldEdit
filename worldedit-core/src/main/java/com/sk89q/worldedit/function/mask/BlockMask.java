@@ -43,35 +43,20 @@ import javax.annotation.Nullable;
  * <p>This mask checks for both an exact block type and state value match,
  * respecting fuzzy status of the BlockState.</p>
  */
-public class BlockMask extends ABlockMask {
+public class BlockMask extends AbstractExtentMask {
 
-    private final boolean[] ordinals;
-
-    public BlockMask() {
-        this(new NullExtent());
-    }
-
-    public BlockMask(Extent extent) {
-        this(extent, new boolean[BlockTypesCache.states.length]);
-    }
-
-    public BlockMask(Extent extent, boolean[] ordinals) {
-        super(extent == null ? new NullExtent() : extent);
-        this.ordinals = ordinals;
-    }
+    private final Set<BaseBlock> blocks = new HashSet<>();
 
     /**
      * Create a new block mask.
      *
      * @param extent the extent
      * @param blocks a list of blocks to match
-     * @deprecated NBT not supported by this mask
      */
-    @Deprecated
     public BlockMask(Extent extent, Collection<BaseBlock> blocks) {
-        this(extent);
+        super(extent);
         checkNotNull(blocks);
-        add(blocks);
+        this.blocks.addAll(blocks);
     }
 
     /**
@@ -84,77 +69,14 @@ public class BlockMask extends ABlockMask {
         this(extent, Arrays.asList(checkNotNull(block)));
     }
 
-    public BlockMask add(Predicate<BlockState> predicate) {
-        for (int i = 0; i < ordinals.length; i++) {
-            if (!ordinals[i]) {
-                BlockState state = BlockTypesCache.states[i];
-                if (state != null) {
-                    ordinals[i] = predicate.test(state);
-                }
-            }
-        }
-        return this;
-    }
-
-    public BlockMask add(BlockState... states) {
-        addStates(Arrays.asList(states));
-        return this;
-    }
-
-    public BlockMask remove(BlockState... states) {
-        for (BlockState state : states) {
-            ordinals[state.getOrdinal()] = false;
-        }
-        return this;
-    }
-
-    public BlockMask clear() {
-        Arrays.fill(ordinals, false);
-        return this;
-    }
-
-    public boolean isEmpty() {
-        for (boolean value : ordinals) {
-            if (value) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private BlockMask addStates(Collection<BlockState> states) {
-        for (BlockState state : states) {
-            ordinals[state.getOrdinal()] = true;
-        }
-        return this;
-    }
-
-    public BlockMask add(BlockType... types) {
-        addTypes(Arrays.asList(types));
-        return this;
-    }
-
-    private BlockMask addTypes(Collection<BlockType> types) {
-        for (BlockType type : types) {
-            for (BlockState state : type.getAllStates()) {
-                ordinals[state.getOrdinal()] = true;
-            }
-        }
-        return this;
-    }
-
     /**
      * Add the given blocks to the list of criteria.
      *
      * @param blocks a list of blocks
-     * @deprecated NBT not supported by this mask
      */
-    @Deprecated
     public void add(Collection<BaseBlock> blocks) {
         checkNotNull(blocks);
-        for (BaseBlock block : blocks) {
-            add(block.toBlockState());
-        }
+        this.blocks.addAll(blocks);
     }
 
     /**
@@ -166,57 +88,25 @@ public class BlockMask extends ABlockMask {
         add(Arrays.asList(checkNotNull(block)));
     }
 
-    @Override
-    public boolean test(BlockState state) {
-        return ordinals[state.getOrdinal()];
+    /**
+     * Get the list of blocks that are tested with.
+     *
+     * @return a list of blocks
+     */
+    public Collection<BaseBlock> getBlocks() {
+        return blocks;
     }
 
     @Override
     public boolean test(BlockVector3 vector) {
-        return ordinals[vector.getOrdinal(getExtent())];
-    }
-
-    @Override
-    public Mask tryCombine(Mask mask) {
-        if (mask instanceof ABlockMask) {
-            ABlockMask other = (ABlockMask) mask;
-            boolean modified = false;
-            boolean hasAny = false;
-            for (int i = 0; i < ordinals.length; i++) {
-                if (ordinals[i]) {
-                    boolean result = other.test(BlockState.getFromOrdinal(i));
-                    hasAny |= result;
-                    modified |= !result;
-                    ordinals[i] = result;
-                }
-            }
-            if (modified) {
-                if (!hasAny) {
-                    return Masks.alwaysFalse();
-                }
-                return this;
+        BlockState block = getExtent().getBlock(vector);
+        for (BaseBlock testBlock : blocks) {
+            if (testBlock.equalsFuzzy(block)) {
+                return true;
             }
         }
-        return null;
-    }
 
-    @Override
-    public Mask tryOr(Mask mask) {
-        if (mask instanceof ABlockMask) {
-            ABlockMask other = (ABlockMask) mask;
-            boolean modified = false;
-            for (int i = 0; i < ordinals.length; i++) {
-                if (!ordinals[i]) {
-                    boolean result = other.test(BlockState.getFromOrdinal(i));
-                    modified |= result;
-                    ordinals[i] = result;
-                }
-            }
-            if (modified) {
-                return this;
-            }
-        }
-        return null;
+        return false;
     }
 
     @Nullable
@@ -225,78 +115,4 @@ public class BlockMask extends ABlockMask {
         return null;
     }
 
-    @Override
-    public Mask tryOptimize() {
-        int setStates = 0;
-        BlockState setState = null;
-        BlockState unsetState = null;
-        int totalStates = 0;
-
-        int setTypes = 0;
-        BlockType setType = null;
-        BlockType unsetType = null;
-        int totalTypes = 0;
-
-        for (BlockType type : BlockTypesCache.values) {
-            if (type != null) {
-                totalTypes++;
-                boolean hasAll = true;
-                boolean hasAny = false;
-                List<BlockState> all = type.getAllStates();
-                for (BlockState state : all) {
-                    totalStates++;
-                    hasAll &= test(state);
-                    hasAny = true;
-                }
-                if (hasAll) {
-                    setTypes++;
-                    setType = type;
-                    setStates += all.size();
-                    setState = type.getDefaultState();
-                } else {
-                    for (BlockState state : all) {
-                        if (test(state)) {
-                            setStates++;
-                            setState = state;
-                        } else {
-                            unsetState = state;
-                        }
-                    }
-                }
-            }
-        }
-        if (setStates == 0) {
-            return Masks.alwaysFalse();
-        }
-        if (setStates == totalStates) {
-            return Masks.alwaysTrue();
-        }
-
-        if (setStates == 1) {
-            return new SingleBlockStateMask(getExtent(), setState);
-        }
-
-        if (setStates == totalStates - 1) {
-            return new InverseSingleBlockStateMask(getExtent(), unsetState);
-        }
-
-        if (setTypes == 1) {
-            return new SingleBlockTypeMask(getExtent(), setType);
-        }
-
-        if (setTypes == totalTypes - 1) {
-            throw new IllegalArgumentException("unsetType cannot be null when passed to InverseSingleBlockTypeMask");
-        }
-
-        return null;
-    }
-
-    @Override
-    public Mask inverse() {
-        boolean[] cloned = ordinals.clone();
-        for (int i = 0; i < cloned.length; i++) {
-            cloned[i] = !cloned[i];
-        }
-        return new BlockMask(getExtent(), cloned);
-    }
 }

@@ -52,19 +52,8 @@ public interface OutputExtent {
      * @param block block to set
      * @return true if the block was successfully set (return value may not be accurate)
      * @throws WorldEditException thrown on an error
-     * @deprecated It is recommended that you use {@link #setBlock(int, int, int, BlockStateHolder)} in FAWE
      */
-    @Deprecated
-    default <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException {
-        return setBlock(position.getX(), position.getY(), position.getZ(), block);
-    }
-
-    // The defaults need to remain for compatibility (the actual implementation still needs to override one of these)
-    default <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block) throws WorldEditException {
-        return setBlock(MutableBlockVector3.get(x, y, z), block);
-    }
-
-    boolean setTile(int x, int y, int z, CompoundTag tile) throws WorldEditException;
+    <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block) throws WorldEditException;
 
     /**
      * Set the biome.
@@ -73,14 +62,7 @@ public interface OutputExtent {
      * @param biome the biome to set to
      * @return true if the biome was successfully set (return value may not be accurate)
      */
-    default boolean setBiome(BlockVector2 position, BiomeType biome) {
-        return setBiome(position.getX(), 0, position.getBlockZ(), biome);
-    }
-
-    // The defaults need to remain for compatibility (the actual implementation still needs to override one of these)
-    default boolean setBiome(int x, int y, int z, BiomeType biome) {
-        return setBiome(MutableBlockVector2.get(x, z), biome);
-    }
+    boolean setBiome(BlockVector2 position, BiomeType biome);
 
     /**
      * Return an {@link Operation} that should be called to tie up loose ends

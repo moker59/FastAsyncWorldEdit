@@ -34,17 +34,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-public abstract class AbstractRegion extends AbstractSet<BlockVector3> implements Region {
+public abstract class AbstractRegion implements Region {
 
     protected World world;
 
     public AbstractRegion(World world) {
         this.world = world;
-    }
-
-    @Override
-    public int size() {
-        return getArea();
     }
 
     @Override
@@ -192,7 +187,7 @@ public abstract class AbstractRegion extends AbstractSet<BlockVector3> implement
 
     @Override
     public Set<BlockVector3> getChunkCubes() {
-        final Set<BlockVector3> chunks = new BlockVectorSet();
+        final Set<BlockVector3> chunks = new HashSet<>();
 
         final BlockVector3 min = getMinimumPoint();
         final BlockVector3 max = getMaximumPoint();

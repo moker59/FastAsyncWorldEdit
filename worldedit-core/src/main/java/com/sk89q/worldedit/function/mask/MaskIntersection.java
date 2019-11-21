@@ -44,9 +44,7 @@ import javax.annotation.Nullable;
  */
 public class MaskIntersection extends AbstractMask {
 
-    private final Set<Mask> masks;
-    private Mask[] masksArray;
-    private boolean defaultReturn;
+    private final Set<Mask> masks = new HashSet<>();
 
     /**
      * Create a new intersection.
@@ -55,32 +53,7 @@ public class MaskIntersection extends AbstractMask {
      */
     public MaskIntersection(Collection<Mask> masks) {
         checkNotNull(masks);
-        this.masks = new LinkedHashSet<>(masks);
-        formArray();
-    }
-
-    public static Mask of(Mask... masks) {
-        Set<Mask> set = new LinkedHashSet<>();
-        for (Mask mask : masks) {
-            if (mask == Masks.alwaysFalse()) {
-                return mask;
-            }
-            if (mask != null && mask != Masks.alwaysTrue()) {
-                if (mask.getClass() == MaskIntersection.class) {
-                    set.addAll(((MaskIntersection) mask).getMasks());
-                } else {
-                    set.add(mask);
-                }
-            }
-        }
-        switch (set.size()) {
-            case 0:
-                return Masks.alwaysTrue();
-            case 1:
-                return set.iterator().next();
-            default:
-                return new MaskIntersection(masks).optimize();
-        }
+        this.masks.addAll(masks);
     }
 
     /**
@@ -92,104 +65,6 @@ public class MaskIntersection extends AbstractMask {
         this(Arrays.asList(checkNotNull(mask)));
     }
 
-    private void formArray() {
-        if (masks.isEmpty()) {
-            masksArray = new Mask[]{Masks.alwaysFalse()};
-        } else {
-            masksArray = masks.toArray(new Mask[0]);
-        }
-        this.defaultReturn = masksArray.length != 0;
-    }
-
-    public Function<Entry<Mask, Mask>, Mask> pairingFunction() {
-        return input -> input.getKey().tryCombine(input.getValue());
-    }
-
-    private boolean optimizeMasks(Set<Mask> ignore) {
-        boolean changed = false;
-        // Optimize sub masks
-        for (int i = 0; i < masksArray.length; i++) {
-            Mask mask = masksArray[i];
-            if (ignore.contains(mask)) continue;
-            Mask newMask = mask.tryOptimize();
-            if (newMask != null) {
-                changed = true;
-                masksArray[i] = newMask;
-            } else {
-                ignore.add(mask);
-            }
-        }
-        if (changed) {
-            masks.clear();
-            Collections.addAll(masks, masksArray);
-        }
-        // Optimize this
-        boolean formArray = false;
-        for (Mask mask : masksArray) {
-            if (mask.getClass() == this.getClass()) {
-                this.masks.remove(mask);
-                this.masks.addAll(((MaskIntersection) mask).getMasks());
-                formArray = true;
-                changed = true;
-            }
-        }
-        if (formArray) formArray();
-        return changed;
-    }
-
-    @Override
-    public Mask tryOptimize() {
-        int maxIteration = 1000;
-        Set<Mask> optimized = new HashSet<>();
-        Set<Map.Entry<Mask, Mask>> failedCombines = new HashSet<>();
-        // Combine the masks
-        boolean changed = false;
-        while (combineMasks(pairingFunction(), failedCombines)) changed = true;
-        // Optimize / combine
-        do changed |= optimizeMasks(optimized);
-        while (combineMasks(pairingFunction(), failedCombines) && --maxIteration > 0);
-
-        if (maxIteration == 0) {
-            getLogger(MaskIntersection.class).debug("Failed optimize MaskIntersection");
-            for (Mask mask : masks) {
-                System.out.println(mask.getClass() + " / " + mask);
-            }
-        }
-        // Return result
-        formArray();
-        if (masks.isEmpty()) return Masks.alwaysTrue();
-        if (masks.size() == 1) return masks.iterator().next();
-        return changed ? this : null;
-    }
-
-    private boolean combineMasks(Function<Entry<Mask, Mask>, Mask> pairing, Set<Map.Entry<Mask, Mask>> failedCombines) {
-        boolean hasOptimized = false;
-        while (true) {
-            Mask[] result = null;
-            outer:
-            for (Mask mask : masks) {
-                for (Mask other : masks) {
-                    if (mask == other) continue;
-                    AbstractMap.SimpleEntry<Mask, Mask> pair = new AbstractMap.SimpleEntry<>(mask, other);
-                    if (failedCombines.contains(pair)) continue;
-                    Mask combined = pairing.apply(pair);
-                    if (combined != null) {
-                        result = new Mask[]{combined, mask, other};
-                        break outer;
-                    } else {
-                        failedCombines.add(pair);
-                    }
-                }
-            }
-            if (result == null) break;
-            masks.remove(result[1]);
-            masks.remove(result[2]);
-            masks.add(result[0]);
-            hasOptimized = true;
-        }
-        return hasOptimized;
-    }
-
     /**
      * Add some masks to the list.
      *
@@ -198,7 +73,6 @@ public class MaskIntersection extends AbstractMask {
     public void add(Collection<Mask> masks) {
         checkNotNull(masks);
         this.masks.addAll(masks);
-        formArray();
     }
 
     /**
@@ -219,19 +93,19 @@ public class MaskIntersection extends AbstractMask {
         return masks;
     }
 
-    public final Mask[] getMasksArray() {
-        return masksArray;
-    }
-
     @Override
     public boolean test(BlockVector3 vector) {
-        for (Mask mask : masksArray) {
+        if (masks.isEmpty()) {
+            return false;
+        }
+
+        for (Mask mask : masks) {
             if (!mask.test(vector)) {
                 return false;
             }
         }
 
-        return defaultReturn;
+        return true;
     }
 
     @Nullable

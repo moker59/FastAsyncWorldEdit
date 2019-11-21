@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
 /**
  * An interface for adapters of various Bukkit implementations.
  */
-public interface BukkitImplAdapter<T> extends IBukkitAdapter {
+public interface BukkitImplAdapter {
 
     /**
      * Get the Minecraft data version for the current world data.
@@ -189,7 +189,7 @@ public interface BukkitImplAdapter<T> extends IBukkitAdapter {
     BaseItemStack adapt(ItemStack itemStack);
 
     default OptionalInt getInternalBlockStateId(BlockData data) {
-        return getInternalBlockStateId(BukkitAdapter.adapt(data));
+        return OptionalInt.empty();
     }
 
     /**
@@ -200,36 +200,5 @@ public interface BukkitImplAdapter<T> extends IBukkitAdapter {
      */
     default OptionalInt getInternalBlockStateId(BlockState state) {
         return OptionalInt.empty();
-    }
-
-
-    // FAWE ADDITIONS
-    default BlockMaterial getMaterial(BlockType blockType) {
-        return getMaterial(blockType.getDefaultState());
-    }
-
-    default BlockMaterial getMaterial(BlockState blockState) {
-        return null;
-    }
-
-    default Tag toNative(T foreign) {
-        return null;
-    }
-
-    default T fromNative(Tag foreign) {
-        return null;
-    }
-
-    default @Nullable World createWorld(WorldCreator creator) {
-        return ((FaweBukkit) Fawe.imp()).createWorldUnloaded(creator::createWorld);
-    }
-
-    /**
-     * Send a fake chunk packet to a player
-     * @param player
-     * @param packet
-     */
-    default void sendFakeChunk(org.bukkit.World world, Player player, ChunkPacket packet) {
-        throw new UnsupportedOperationException("Cannot send fake chunks");
     }
 }

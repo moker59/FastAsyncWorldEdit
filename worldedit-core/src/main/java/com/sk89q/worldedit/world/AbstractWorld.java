@@ -72,7 +72,7 @@ public abstract class AbstractWorld implements World {
 
     @Override
     public Mask createLiquidMask() {
-        return new BlockMaskBuilder().addTypes(BlockTypes.LAVA, BlockTypes.WATER).build(this);
+        return new BlockTypeMask(this, BlockTypes.LAVA, BlockTypes.WATER);
     }
 
     @Override
@@ -153,6 +153,7 @@ public abstract class AbstractWorld implements World {
     @Override
     public void setWeather(WeatherType weatherType, long duration) {
     }
+
     private class QueuedEffect implements Comparable<QueuedEffect> {
         private final Vector3 position;
         private final BlockType blockType;
@@ -166,7 +167,7 @@ public abstract class AbstractWorld implements World {
 
         @SuppressWarnings("deprecation")
         public void play() {
-            playEffect(position, 2001, blockType.getLegacyCombinedId() >> 4);
+            playEffect(position, 2001, blockType.getLegacyId());
         }
 
         @Override

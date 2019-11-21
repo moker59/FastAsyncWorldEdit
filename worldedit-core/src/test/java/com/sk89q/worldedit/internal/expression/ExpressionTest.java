@@ -38,13 +38,6 @@ import static org.mockito.Mockito.when;
 
 class ExpressionTest extends BaseExpressionTest {
 
-    private Platform mockPlat = mock(Platform.class);
-
-    @AfterEach
-    public void tearDown() {
-        WorldEdit.getInstance().getPlatformManager().unregister(mockPlat);
-    }
-
     @Test
     public void testEvaluate() throws ExpressionException {
         // check

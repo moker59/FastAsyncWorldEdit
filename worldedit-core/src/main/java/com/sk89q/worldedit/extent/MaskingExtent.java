@@ -71,16 +71,4 @@ public class MaskingExtent extends AbstractDelegateExtent {
         return mask.test(location) && super.setBlock(location, block);
     }
 
-    @Override
-    public boolean setBiome(BlockVector2 position, BiomeType biome) {
-        return mask.test(position.toBlockVector3()) && super.setBiome(position, biome);
-    }
-
-    @Override
-    public boolean setBiome(int x, int y, int z, BiomeType biome) {
-        return mask.test(BlockVector3.at(x, y, z)) && super.setBiome(x, y, z, biome);
-    }
-
-
-
 }

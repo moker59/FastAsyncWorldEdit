@@ -28,7 +28,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 /**
  * This class is currently only for internal use. Do not post or catch this event.
  */
-public class CommandEvent extends AbstractCancellable implements Runnable {
+public class CommandEvent extends AbstractCancellable {
 
     private final Actor actor;
     private final String arguments;
@@ -65,8 +65,4 @@ public class CommandEvent extends AbstractCancellable implements Runnable {
         return arguments;
     }
 
-    @Override
-    public void run() {
-        PlatformCommandManager.getInstance().handleCommandOnCurrentThread(this);
-    }
 }

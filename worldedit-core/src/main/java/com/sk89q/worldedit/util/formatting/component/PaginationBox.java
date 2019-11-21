@@ -131,47 +131,21 @@ public abstract class PaginationBox extends MessageBox {
         throw new IllegalStateException("Pagination components must be created with a page");
     }
 
-    public static PaginationBox fromStrings(String header, @Nullable String pageCommand, Collection lines) {
-        return new ListPaginationBox(header, pageCommand, lines);
-    }
-
     public static PaginationBox fromStrings(String header, @Nullable String pageCommand, List<String> lines) {
         return new ListPaginationBox(header, pageCommand, lines);
     }
 
-    public static class ListPaginationBox extends PaginationBox {
-        private final Collection lines;
-        private int iterIndex;
-        private Iterator iterator;
+    private static class ListPaginationBox extends PaginationBox {
+        private final List<String> lines;
 
-        public ListPaginationBox(String header, String pageCommand, List<String> lines) {
-            this(header, pageCommand, (Collection) lines);
-        }
-
-        public ListPaginationBox(String header, String pageCommand, Collection lines) {
+        ListPaginationBox(String header, String pageCommand, List<String> lines) {
             super(header, pageCommand);
             this.lines = lines;
         }
 
         @Override
         public Component getComponent(int number) {
-            Object obj;
-            if (lines instanceof List) {
-                obj = ((List) lines).get(number);
-            } else {
-                if (iterator == null || iterIndex > number) {
-                    iterator = lines.iterator();
-                    iterIndex = 0;
-                }
-                do {
-                    obj = iterator.next();
-                    iterIndex++;
-                } while (iterIndex < number);
-            }
-            if (obj instanceof Component) {
-                return (Component) obj;
-            }
-            return TextComponent.of(obj + "");
+            return TextComponent.of(lines.get(number));
         }
 
         @Override

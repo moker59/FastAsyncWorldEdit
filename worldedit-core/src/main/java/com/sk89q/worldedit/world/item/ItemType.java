@@ -31,15 +31,12 @@ import com.sk89q.worldedit.world.block.BlockTypes;
 
 import javax.annotation.Nullable;
 
-public class ItemType implements RegistryItem, Keyed {
+public class ItemType implements Keyed {
 
     public static final NamespacedRegistry<ItemType> REGISTRY = new NamespacedRegistry<>("item type");
 
     private String id;
     private String name;
-    private BlockType blockType;
-    private boolean initBlockType;
-    private BaseItem defaultState;
 
     public ItemType(String id) {
         // If it has no namespace, assume minecraft.
@@ -52,18 +49,6 @@ public class ItemType implements RegistryItem, Keyed {
     @Override
     public String getId() {
         return this.id;
-    }
-
-    private int internalId;
-
-    @Override
-    public void setInternalId(int internalId) {
-        this.internalId = internalId;
-    }
-
-    @Override
-    public int getInternalId() {
-        return internalId;
     }
 
     /**
@@ -99,18 +84,7 @@ public class ItemType implements RegistryItem, Keyed {
      */
     @Nullable
     public BlockType getBlockType() {
-        if (!initBlockType) {
-            initBlockType = true;
-            this.blockType = BlockTypes.get(this.id);
-        }
-        return this.blockType;
-    }
-
-    public BaseItem getDefaultState() {
-        if (defaultState == null) {
-            this.defaultState = new BaseItemStack(this);
-        }
-        return this.defaultState;
+        return BlockTypes.get(this.id);
     }
 
     @Override

@@ -39,28 +39,28 @@ public class BlockTransformExtentTest {
 
     @BeforeEach
     public void setUp() {
-        //BlockType.REGISTRY.register("worldedit:test", new BlockType("worldedit:test"));
+        BlockType.REGISTRY.register("worldedit:test", new BlockType("worldedit:test"));
     }
 
     @Test
     public void testTransform() {
-//        for (BlockType type : BlockType.REGISTRY.values()) {
-//            if (ignored.contains(type)) {
-//                continue;
-//            }
-//
-//            BlockState base = type.getDefaultState();
-//            BlockState rotated = base;
-//
-//            for (int i = 1; i < 4; i++) {
-//                rotated = BlockTransformExtent.transform(base, ROTATE_90);
-//            }
-//            assertEquals(base, rotated);
-//            rotated = base;
-//            for (int i = 1; i < 4; i++) {
-//                rotated = BlockTransformExtent.transform(base, ROTATE_NEG_90);
-//            }
-//            assertEquals(base, rotated);
-//        }
+        for (BlockType type : BlockType.REGISTRY.values()) {
+            if (ignored.contains(type)) {
+                continue;
+            }
+
+            BlockState base = type.getDefaultState();
+            BlockState rotated = base;
+
+            for (int i = 1; i < 4; i++) {
+                rotated = BlockTransformExtent.transform(base, ROTATE_90);
+            }
+            assertEquals(base, rotated);
+            rotated = base;
+            for (int i = 1; i < 4; i++) {
+                rotated = BlockTransformExtent.transform(base, ROTATE_NEG_90);
+            }
+            assertEquals(base, rotated);
+        }
     }
 }

@@ -36,40 +36,17 @@ import java.lang.ref.SoftReference;
  */
 public class WaterloggedRemover extends AbstractExtentPattern {
 
-    private static SoftReference<BlockState[]> cache = new SoftReference<>(null);
-
-    private synchronized BlockState[] getRemap() {
-        BlockState[] remap = cache.get();
-        if (remap != null) return remap;
-        cache = new SoftReference<>(remap = new BlockState[BlockTypesCache.states.length]);
-
-        // init
-        for (int i = 0; i < remap.length; i++) {
-            BlockState state = remap[i];
-            BlockType type = state.getBlockType();
-            if (!type.hasProperty(PropertyKey.WATERLOGGED)) {
-                continue;
-            }
-            if (state.getState(PropertyKey.WATERLOGGED) == Boolean.TRUE) {
-                remap[i] = state.with(PropertyKey.WATERLOGGED, false);
-            }
-        }
-        return remap;
-    }
-
-    private final BlockState[] remap;
-
     public WaterloggedRemover(Extent extent) {
         super(extent);
-        this.remap = getRemap();
     }
 
     @Override
     public BaseBlock apply(BlockVector3 position) {
         BaseBlock block = getExtent().getFullBlock(position);
-        BlockState newState = remap[block.getOrdinal()];
-        if (newState != null) {
-            return newState.toBaseBlock(block.getNbtData());
+        @SuppressWarnings("unchecked")
+        Property<Object> prop = (Property<Object>) block.getBlockType().getPropertyMap().getOrDefault("waterlogged", null);
+        if (prop != null) {
+            return block.with(prop, false);
         }
         return BlockTypes.AIR.getDefaultState().toBaseBlock();
     }

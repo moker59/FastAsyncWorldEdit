@@ -65,11 +65,6 @@ public class CylinderRegionSelector implements RegionSelector, CUIRegion {
         this((World) null);
     }
 
-    public CylinderRegionSelector(CylinderRegion region) {
-        checkNotNull(region);
-        this.region = region;
-    }
-
     /**
      * Create a new region selector.
      *
@@ -172,7 +167,8 @@ public class CylinderRegionSelector implements RegionSelector, CUIRegion {
 
     @Override
     public void explainPrimarySelection(Actor player, LocalSession session, BlockVector3 pos) {
-        BBC.SELECTOR_CENTER.send(player, pos, 0);
+        player.print("Starting a new cylindrical selection at " + pos + ".");
+
         session.describeCUI(player);
     }
 
@@ -181,7 +177,7 @@ public class CylinderRegionSelector implements RegionSelector, CUIRegion {
         Vector3 center = region.getCenter();
 
         if (!center.equals(Vector3.ZERO)) {
-            BBC.SELECTOR_RADIUS.send(player, NUMBER_FORMAT.format(region.getRadius().getX()) + "/" + NUMBER_FORMAT.format(region.getRadius().getZ()), region.getArea());
+            player.print("Radius set to " + NUMBER_FORMAT.format(region.getRadius().getX()) + "/" + NUMBER_FORMAT.format(region.getRadius().getZ()) + " blocks. (" + region.getArea() + ").");
         } else {
             player.printError("You must select the center point before setting the radius.");
             return;

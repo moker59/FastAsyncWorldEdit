@@ -70,11 +70,6 @@ public class ForgetfulExtentBuffer extends AbstractDelegateExtent implements Pat
         this(delegate, Masks.alwaysTrue());
     }
 
-    @Override
-    public boolean isQueueEnabled() {
-        return true;
-    }
-
     /**
      * Create a new extent buffer that will buffer changes that meet the criteria
      * of the given mask.
@@ -137,30 +132,6 @@ public class ForgetfulExtentBuffer extends AbstractDelegateExtent implements Pat
             return getExtent().setBiome(position, biome);
         }
     }
-
-    @Override
-    public boolean setBiome(int x, int y, int z, BiomeType biome) {
-        // Update minimum
-        if (min2d == null) {
-            min2d = BlockVector2.at(x, z);
-        } else {
-            min2d = min2d.getMinimum(BlockVector2.at(x,z));
-        }
-
-        // Update maximum
-        if (max2d == null) {
-            max2d = BlockVector2.at(x,z);
-        } else {
-            max2d = max2d.getMaximum(BlockVector2.at(x,z));
-        }
-
-        if (biomeMask.test(BlockVector2.at(x,z))) {
-            biomeBuffer.put(BlockVector2.at(x,z), biome);
-            return true;
-        } else {
-            return getExtent().setBiome(x, y, z, biome);
-        }    }
-
 
     @Override
     public BaseBlock apply(BlockVector3 pos) {

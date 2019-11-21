@@ -36,7 +36,7 @@ import java.util.List;
  */
 public class ClipboardHolder {
 
-    private Clipboard clipboard;
+    private final Clipboard clipboard;
     private Transform transform = new Identity();
 
     /**
@@ -55,34 +55,10 @@ public class ClipboardHolder {
      * If there is a transformation applied, the returned clipboard will
      * not contain its effect.
      *
-     * @deprecated FAWE supports multiple loaded schematics {@link #getClipboards()}
      * @return the clipboard
      */
-    @Deprecated
     public Clipboard getClipboard() {
         return clipboard;
-    }
-
-    /**
-     * Gets all currently held clipboards.
-     * @return all clipboards being held.
-     */
-    public List<Clipboard> getClipboards() {
-        return Collections.singletonList(getClipboard());
-    }
-
-    public boolean contains(Clipboard clipboard) {
-        return this.clipboard == clipboard;
-    }
-
-    /**
-     * Gets all end ClipboardHolders<br/>
-     *  - Usually this will return itself.<br/>
-     *  - If this is a multi clipboard, it will return the children
-     * @return a List of end ClipboardHolders
-     */
-    public List<ClipboardHolder> getHolders() {
-        return Collections.singletonList(this);
     }
 
     /**
@@ -112,14 +88,5 @@ public class ClipboardHolder {
     public PasteBuilder createPaste(Extent targetExtent) {
         return new PasteBuilder(this, targetExtent);
     }
-
-    public void close() {
-        if (clipboard != null) {
-            clipboard.close();
-        }
-        clipboard = null;
-    }
-
-
 
 }

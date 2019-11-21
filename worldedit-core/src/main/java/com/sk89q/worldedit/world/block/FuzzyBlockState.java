@@ -36,25 +36,14 @@ import java.util.Objects;
  */
 public class FuzzyBlockState extends BlockState {
 
-    private final Map<PropertyKey, Object> props;
-
     FuzzyBlockState(BlockType blockType) {
-        this(blockType.getDefaultState(), null);
+        super(blockType);
     }
 
-    public FuzzyBlockState(BlockState state) {
-        this(state, null);
-    }
-
-    private FuzzyBlockState(BlockState state, Map<Property<?>, Object> values) {
-        super(state.getBlockType(), state.getInternalId(), state.getOrdinal());
-        if (values == null || values.isEmpty()) {
-            props = Collections.emptyMap();
-        } else {
-            props = new HashMap<>(values.size());
-            for (Map.Entry<Property<?>, Object> entry : values.entrySet()) {
-                props.put(entry.getKey().getKey(), entry.getValue());
-            }
+    private FuzzyBlockState(BlockType blockType, Map<Property<?>, Object> values) {
+        this(blockType);
+        for (Map.Entry<Property<?>, Object> entry : values.entrySet()) {
+            setState(entry.getKey(), entry.getValue());
         }
     }
 
@@ -72,26 +61,6 @@ public class FuzzyBlockState extends BlockState {
             state = state.with(objKey, entry.getValue());
         }
         return state;
-    }
-
-    @Override
-    public boolean equalsFuzzy(BlockStateHolder<?> o) {
-        if (!getBlockType().equals(o.getBlockType())) {
-            return false;
-        }
-        if (!props.isEmpty()) {
-            for (Map.Entry<PropertyKey, Object> entry : props.entrySet()) {
-                if (!Objects.equals(o.getState(entry.getKey()), entry.getValue())) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    @Override
-    public BaseBlock toBaseBlock() {
-        return new BaseBlock();
     }
 
     @Override
@@ -166,7 +135,7 @@ public class FuzzyBlockState extends BlockState {
             if (values.isEmpty()) {
                 return type.getFuzzyMatcher();
             }
-            return new FuzzyBlockState(type.getDefaultState(), values);
+            return new FuzzyBlockState(type, values);
         }
 
         /**

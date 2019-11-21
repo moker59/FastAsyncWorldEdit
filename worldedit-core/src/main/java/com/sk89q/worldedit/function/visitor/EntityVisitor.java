@@ -80,7 +80,7 @@ public class EntityVisitor implements Operation {
 
     @Override
     public void addStatusMessages(List<String> messages) {
-        messages.add(BBC.VISITOR_ENTITY.format(getAffected()));
+        messages.add(getAffected() + " entities affected");
     }
 
 }

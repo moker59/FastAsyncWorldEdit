@@ -28,38 +28,8 @@ import javax.annotation.Nullable;
 
 public class IntegerProperty extends AbstractProperty<Integer> {
 
-    private final int[] map;
-
     public IntegerProperty(final String name, final List<Integer> values) {
-        this(name, values, 0);
-    }
-
-    private IntegerProperty(final String name, final List<Integer> values, int bitOffset) {
-        super(name, values, bitOffset);
-        int max = Collections.max(values);
-        this.map = new int[max + 1];
-        for (int i = 0; i < values.size(); i++) {
-            this.map[values.get(i)] = i;
-        }
-    }
-
-    @Override
-    public IntegerProperty withOffset(int bitOffset) {
-        return new IntegerProperty(getName(), getValues(), bitOffset);
-    }
-
-    @Override
-    public int getIndex(Integer value) {
-        try {
-            return this.map[value];
-        } catch (IndexOutOfBoundsException ignore) {
-            return -1;
-        }
-    }
-
-    @Override
-    public int getIndexFor(CharSequence string) throws IllegalArgumentException {
-        return this.map[StringMan.parseInt(string)];
+        super(name, values);
     }
 
     @Nullable
@@ -67,14 +37,7 @@ public class IntegerProperty extends AbstractProperty<Integer> {
     public Integer getValueFor(String string) {
         try {
             int val = Integer.parseInt(string);
-            /*
-            //It shouldn't matter if this check is slow. It's an important check
             if (!getValues().contains(val)) {
-                throw new IllegalArgumentException("Invalid int value: " + string + ". Must be in " + getValues().toString());
-            }
-            */
-            // An exception will get thrown anyway if the property doesn't exist, so it's not really that important. Anyway, we can check the array instead of the string list
-            if (val > 0 && val >= map.length) {
                 throw new IllegalArgumentException("Invalid int value: " + string + ". Must be in " + getValues().toString());
             }
             return val;

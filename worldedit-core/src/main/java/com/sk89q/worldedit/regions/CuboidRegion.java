@@ -48,11 +48,6 @@ import org.jetbrains.annotations.NotNull;
  */
 public class CuboidRegion extends AbstractRegion implements FlatRegion {
 
-
-    private boolean useOldIterator;
-    private int minX, minY, minZ, maxX, maxY, maxZ;
-    private BlockVector3 min;
-    private BlockVector3 max;
     private BlockVector3 pos1;
     private BlockVector3 pos2;
 
@@ -82,10 +77,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
         recalculate();
     }
 
-    public void setUseOldIterator(boolean useOldIterator) {
-        this.useOldIterator = useOldIterator;
-    }
-
     /**
      * Get the first cuboid-defining corner.
      *
@@ -102,7 +93,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
      */
     public void setPos1(BlockVector3 pos1) {
         this.pos1 = pos1;
-        recalculate();
     }
 
     /**
@@ -121,26 +111,14 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
      */
     public void setPos2(BlockVector3 pos2) {
         this.pos2 = pos2;
-        recalculate();
     }
 
     /**
      * Clamps the cuboid according to boundaries of the world.
      */
-    protected void recalculate() {
-        if (pos1 == null || pos2 == null) {
-            return;
-        }
-        pos1 = pos1.clampY(world == null ? 0 : 0, world == null ? FaweCache.IMP.WORLD_MAX_Y : world.getMaxY());
-        pos2 = pos2.clampY(world == null ? 0 : 0, world == null ? FaweCache.IMP.WORLD_MAX_Y : world.getMaxY());
-        minX = Math.min(pos1.getX(), pos2.getX());
-        minY = Math.min(pos1.getY(), pos2.getY());
-        minZ = Math.min(pos1.getZ(), pos2.getZ());
-        maxX = Math.max(pos1.getX(), pos2.getX());
-        maxY = Math.max(pos1.getY(), pos2.getY());
-        maxZ = Math.max(pos1.getZ(), pos2.getZ());
-        this.min = BlockVector3.at(minX, minY, minZ);
-        this.max = BlockVector3.at(maxX, maxY, maxZ);
+    private void recalculate() {
+        pos1 = pos1.clampY(0, world == null ? 255 : world.getMaxY());
+        pos2 = pos2.clampY(0, world == null ? 255 : world.getMaxY());
     }
 
     /**
@@ -188,12 +166,22 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
 
     @Override
     public BlockVector3 getMinimumPoint() {
-        return min;
+        return pos1.getMinimum(pos2);
     }
 
     @Override
     public BlockVector3 getMaximumPoint() {
-        return max;
+        return pos1.getMaximum(pos2);
+    }
+
+    @Override
+    public int getMinimumY() {
+        return Math.min(pos1.getBlockY(), pos2.getBlockY());
+    }
+
+    @Override
+    public int getMaximumY() {
+        return Math.max(pos1.getBlockY(), pos2.getBlockY());
     }
 
     @Override
@@ -308,104 +296,23 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
 
     @Override
     public Set<BlockVector2> getChunks() {
+        Set<BlockVector2> chunks = new HashSet<>();
+
         BlockVector3 min = getMinimumPoint();
         BlockVector3 max = getMaximumPoint();
-        final int maxX = max.getBlockX() >> ChunkStore.CHUNK_SHIFTS;
-        final int minX = min.getBlockX() >> ChunkStore.CHUNK_SHIFTS;
-        final int maxZ = max.getBlockZ() >> ChunkStore.CHUNK_SHIFTS;
-        final int minZ = min.getBlockZ() >> ChunkStore.CHUNK_SHIFTS;
-        final int size = (maxX - minX + 1) * (maxZ - minZ + 1);
 
-        return new AbstractSet<BlockVector2>() {
-            @NotNull @Override
-            public Iterator<BlockVector2> iterator() {
-                return new Iterator<BlockVector2>() {
-                    final MutableBlockVector2 mutable = new MutableBlockVector2(0, 0);
-
-                    int bx = minX;
-                    int bz = minZ;
-
-                    int tx = maxX;
-                    int tz = maxZ;
-
-                    private int x = minX;
-                    private int z = minZ;
-
-                    int regionX = x >> 5;
-                    int regionZ = z >> 5;
-                    int rbx = Math.max(bx, regionX << 5);
-                    int rbz = Math.max(bz, regionZ << 5);
-                    int rtx = Math.min(tx, 31 + (regionX << 5));
-                    int rtz = Math.min(tz, 31 + (regionZ << 5));
-
-                    boolean hasNext = true;
-
-
-                    @Override
-                    public boolean hasNext() {
-                        return hasNext;
-                    }
-
-                    @Override
-                    public BlockVector2 next() {
-                        mutable.mutX(x);
-                        mutable.mutZ(z);
-                        if (++x > rtx) {
-                            if (++z > rtz) {
-                                if (x > tx) {
-                                    x = bx;
-                                    if (z > tz) {
-                                        if (!hasNext) {
-                                            throw new NoSuchElementException("End of iterator") {
-                                                @Override
-                                                public Throwable fillInStackTrace() {
-                                                    return this;
-                                                }
-                                            };
-                                        }
-                                        x = tx;
-                                        hasNext = false;
-                                        return mutable;
-                                    }
-                                } else {
-                                    z = rbz;
-                                }
-                                regionX = x >> 5;
-                                regionZ = z >> 5;
-                                rbx = Math.max(bx, regionX << 5);
-                                rbz = Math.max(bz, regionZ << 5);
-                                rtx = Math.min(tx, 31 + (regionX << 5));
-                                rtz = Math.min(tz, 31 + (regionZ << 5));
-                            } else {
-                                x = rbx;
-                            }
-                        }
-                        return mutable;
-                    }
-                };
+        for (int x = min.getBlockX() >> ChunkStore.CHUNK_SHIFTS; x <= max.getBlockX() >> ChunkStore.CHUNK_SHIFTS; ++x) {
+            for (int z = min.getBlockZ() >> ChunkStore.CHUNK_SHIFTS; z <= max.getBlockZ() >> ChunkStore.CHUNK_SHIFTS; ++z) {
+                chunks.add(BlockVector2.at(x, z));
             }
+        }
 
-            @Override
-            public int size() {
-                return size;
-            }
-
-
-            @Override
-            public boolean contains(Object o) {
-                if (o instanceof BlockVector2) {
-                    BlockVector2 cv = (BlockVector2) o;
-                    return cv.getX() >= minX && cv.getX() <= maxX && cv.getZ() >= minZ && cv.getZ() <= maxZ;
-                } else {
-                    return false;
-                }
-            }
-        };
+        return chunks;
     }
 
     @Override
     public Set<BlockVector3> getChunkCubes() {
-        Set<BlockVector3> chunks = new BlockVectorSet();
+        Set<BlockVector3> chunks = new HashSet<>();
 
         BlockVector3 min = getMinimumPoint();
         BlockVector3 max = getMaximumPoint();
@@ -421,7 +328,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
         return chunks;
     }
 
-    /* Slow and unnecessary
     @Override
     public boolean contains(BlockVector3 position) {
         BlockVector3 min = getMinimumPoint();
@@ -429,141 +335,35 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
 
         return position.containedWithin(min, max);
     }
-    */
-
-    @Override
-    public boolean contains(int x, int y, int z) {
-        return x >= this.minX && x <= this.maxX && z >= this.minZ && z <= this.maxZ && y >= this.minY && y <= this.maxY;
-    }
-
-    @Override
-    public boolean contains(int x, int z) {
-        return x >= this.minX && x <= this.maxX && z >= this.minZ && z <= this.maxZ;
-    }
-
-    @Override
-    public boolean contains(BlockVector3 position) {
-        return contains(position.getX(), position.getY(), position.getZ());
-    }
 
     @Override
     public Iterator<BlockVector3> iterator() {
-        if (Settings.IMP.HISTORY.COMPRESSION_LEVEL >= 9 || useOldIterator) {
-            return iterator_old();
-        }
-        return new Iterator<BlockVector3>() {
-            final MutableBlockVector3 mutable = new MutableBlockVector3(0, 0, 0);
-            private BlockVector3 min = getMinimumPoint();
-            private BlockVector3 max = getMaximumPoint();
-
-            int bx = min.getBlockX();
-            int by = min.getBlockY();
-            int bz = min.getBlockZ();
-
-            int tx = max.getBlockX();
-            int ty = max.getBlockY();
-            int tz = max.getBlockZ();
-
-            private int x = min.getBlockX();
-            private int y = min.getBlockY();
-            private int z = min.getBlockZ();
-
-            int cx = x >> 4;
-            int cz = z >> 4;
-            int cbx = Math.max(bx, cx << 4);
-            int cbz = Math.max(bz, cz << 4);
-            int ctx = Math.min(tx, 15 + (cx << 4));
-            int ctz = Math.min(tz, 15 + (cz << 4));
-
-            boolean hasNext = true;
-
-
-            @Override
-            public boolean hasNext() {
-                return hasNext;
-            }
-
-            @Override
-            public BlockVector3 next() {
-                mutable.mutX(x);
-                mutable.mutY(y);
-                mutable.mutZ(z);
-                if (++x > ctx) {
-                    if (++z > ctz) {
-                        if (++y > ty) {
-                            y = by;
-                            if (x > tx) {
-                                x = bx;
-                                if (z > tz) {
-                                    if (!hasNext) {
-                                        throw new NoSuchElementException("End of iterator") {
-                                            @Override
-                                            public Throwable fillInStackTrace() {
-                                                return this;
-                                            }
-                                        };
-                                    }
-                                    x = tx;
-                                    y = ty;
-                                    hasNext = false;
-                                    return mutable;
-                                }
-                            } else {
-                                z = cbz;
-                            }
-                            cx = x >> 4;
-                            cz = z >> 4;
-                            cbx = Math.max(bx, cx << 4);
-                            cbz = Math.max(bz, cz << 4);
-                            ctx = Math.min(tx, 15 + (cx << 4));
-                            ctz = Math.min(tz, 15 + (cz << 4));
-                        } else {
-                            x = cbx;
-                            z = cbz;
-                        }
-                    } else {
-                        x = cbx;
-                    }
-                }
-                return mutable;
-            }
-        };
-    }
-
-    public Iterator<BlockVector3> iterator_old() {
-        final MutableBlockVector3 mutable = new MutableBlockVector3(0, 0, 0);
         return new Iterator<BlockVector3>() {
             private BlockVector3 min = getMinimumPoint();
             private BlockVector3 max = getMaximumPoint();
             private int nextX = min.getBlockX();
             private int nextY = min.getBlockY();
             private int nextZ = min.getBlockZ();
-            private boolean hasNext = true;
 
             @Override
             public boolean hasNext() {
-                return hasNext;
+                return (nextX != Integer.MIN_VALUE);
             }
 
             @Override
             public BlockVector3 next() {
-                mutable.mutX(nextX);
-                mutable.mutY(nextY);
-                mutable.mutZ(nextZ);
+                if (!hasNext()) throw new NoSuchElementException();
+                BlockVector3 answer = BlockVector3.at(nextX, nextY, nextZ);
                 if (++nextX > max.getBlockX()) {
                     nextX = min.getBlockX();
                     if (++nextZ > max.getBlockZ()) {
                         nextZ = min.getBlockZ();
                         if (++nextY > max.getBlockY()) {
-                            if (!hasNext()) throw new NoSuchElementException();
-                            nextX = max.getBlockX();
-                            nextZ = max.getBlockZ();
-                            nextY = max.getBlockY();
-                            hasNext = false;
+                            nextX = Integer.MIN_VALUE;
                         }
                     }
                 }
-                return mutable;
+                return answer;
             }
         };
     }
@@ -578,7 +378,7 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
 
             @Override
             public boolean hasNext() {
-                return (nextZ != Integer.MAX_VALUE);
+                return (nextX != Integer.MIN_VALUE);
             }
 
             @Override
@@ -588,16 +388,10 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
                 if (++nextX > max.getBlockX()) {
                     nextX = min.getBlockX();
                     if (++nextZ > max.getBlockZ()) {
-                        nextZ = Integer.MAX_VALUE;
-                        nextX = Integer.MAX_VALUE;
+                        nextX = Integer.MIN_VALUE;
                     }
                 }
                 return answer;
-            }
-
-            @Override
-            public void remove() {
-                throw new UnsupportedOperationException();
             }
         };
     }
@@ -624,12 +418,6 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
         return new CuboidRegion(region.getMinimumPoint(), region.getMaximumPoint());
     }
 
-    public static boolean contains(CuboidRegion region) {
-        BlockVector3 min = region.getMinimumPoint();
-        BlockVector3 max = region.getMaximumPoint();
-        return region.contains(min.getBlockX(), min.getBlockY(), min.getBlockZ()) && region.contains(max.getBlockX(), max.getBlockY(), max.getBlockZ());
-    }
-
     /**
      * Make a cuboid from the center.
      *
@@ -643,148 +431,4 @@ public class CuboidRegion extends AbstractRegion implements FlatRegion {
         BlockVector3 size = BlockVector3.ONE.multiply(apothem);
         return new CuboidRegion(origin.subtract(size), origin.add(size));
     }
-
-    @Override
-    public int getMinimumY() {
-        return minY;
-    }
-
-    @Override
-    public int getMaximumY() {
-        return maxY;
-    }
-
-    public int getMinimumX() {
-        return minX;
-    }
-
-    public int getMinimumZ() {
-        return minZ;
-    }
-
-    public int getMaximumX() {
-        return maxX;
-    }
-
-    public int getMaximumZ() {
-        return maxZ;
-    }
-
-    @Override
-    public void filter(final IChunk chunk, final Filter filter, ChunkFilterBlock block, final IChunkGet get, final IChunkSet set, boolean full) {
-        int chunkX = chunk.getX();
-        int chunkZ = chunk.getZ();
-        block = block.init(chunkX, chunkZ, get);
-
-
-        if ((minX + 15) >> 4 <= chunkX && (maxX - 15) >> 4 >= chunkX && (minZ + 15) >> 4 <= chunkZ && (maxZ - 15) >> 4 >= chunkZ) {
-            filter(chunk, filter, block, get, set, minY, maxY, full);
-            return;
-        }
-        int localMinX = Math.max(minX, chunkX << 4) & 15;
-        int localMaxX = Math.min(maxX, 15 + (chunkX << 4)) & 15;
-        int localMinZ = Math.max(minZ, chunkZ << 4) & 15;
-        int localMaxZ = Math.min(maxZ, 15 + (chunkZ << 4)) & 15;
-
-        int yStart = (minY & 15);
-        int yEnd = (maxY & 15);
-
-        int minSection = minY >> 4;
-        int maxSection = maxY >> 4;
-        if (minSection == maxSection) {
-            filter(chunk, filter, block, get, set, minSection, localMinX, yStart, localMinZ, localMaxX, yEnd, localMaxZ, full);
-            return;
-        }
-        if (yStart != 0) {
-            filter(chunk, filter, block, get, set, minSection, localMinX, yStart, localMinZ, localMaxX, 15, localMaxZ, full);
-            minSection++;
-        }
-        if (yEnd != 15) {
-            filter(chunk, filter, block, get, set, minSection, localMinX, 0, localMinZ, localMaxX, 15, localMaxZ, full);
-            maxSection--;
-        }
-        for (int layer = minSection; layer <= maxSection; layer++) {
-            filter(chunk, filter, block, get, set, layer, localMinX, yStart, localMinZ, localMaxX, yEnd, localMaxZ, full);
-        }
-    }
-
-    @Override
-    public IChunkSet processSet(IChunk chunk, IChunkGet get, IChunkSet set) {
-        int bx = chunk.getX() << 4;
-        int bz = chunk.getZ() << 4;
-        int tx = bx + 15;
-        int tz = bz + 15;
-
-        if (bx >= minX && tx <= maxX && bz >= minZ && tz <= maxZ) {
-            // contains all X/Z
-            if (minY <= 0 && maxY >= 255) {
-                return set;
-            }
-            trimY(set, minY, maxY);
-            trimNBT(set, this::contains);
-            return set;
-        }
-        else if (tx >= minX && bx <= maxX && tz >= minZ && bz <= maxZ) {
-            trimY(set, minY, maxY);
-            final int lowerX = Math.max(0, minX - bx);
-            final int upperX = Math.min(15, 15 + maxX - tx);
-
-            final int lowerZ = Math.max(0, minZ - bz);
-            final int upperZ = Math.min(15, 15 + maxZ - tz);
-
-            final int upperZi = ((upperZ + 1) << 4);
-            final int lowerZi = (lowerZ << 4);
-
-            boolean trimX = lowerX != 0 || upperX != 15;
-            boolean trimZ = lowerZ != 0 || upperZ != 15;
-
-            int indexY, index;
-            for (int layer = 0; layer < FaweCache.IMP.CHUNK_LAYERS; layer++) {
-                if (set.hasSection(layer)) {
-                    char[] arr = set.load(layer);
-                    if (trimX || trimZ) {
-                        indexY = 0;
-                        for (int y = 0; y < 16; y++, indexY += 256) {
-                            if (trimZ) {
-                                index = indexY;
-                                for (int z = 0; z < lowerZ; z++) {
-                                    // null the z values
-                                    for (int x = 0; x < 16; x++, index++) {
-                                        arr[index] = 0;
-                                    }
-                                }
-                                index = indexY + upperZi;
-                                for (int z = upperZ + 1; z < 16; z++) {
-                                    // null the z values
-                                    for (int x = 0; x < 16; x++, index++) {
-                                        arr[index] = 0;
-                                    }
-                                }
-                            }
-                            if (trimX) {
-                                index = indexY + lowerZi;
-                                for (int z = lowerZ; z <= upperZ; z++, index += 16) {
-                                    for (int x = 0; x < lowerX; x++) {
-                                        // null the x values
-                                        arr[index + x] = 0;
-                                    }
-                                    for (int x = upperX + 1; x < 16; x++) {
-                                        // null the x values
-                                        arr[index + x] = 0;
-                                    }
-                                }
-                            }
-                        }
-                        set.setBlocks(layer, arr);
-                    }
-                }
-            }
-            trimNBT(set, this::contains);
-            return set;
-        } else {
-            return null;
-        }
-    }
-
-
 }

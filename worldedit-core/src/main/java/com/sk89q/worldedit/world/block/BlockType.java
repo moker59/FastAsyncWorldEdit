@@ -48,25 +48,48 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 
-public class BlockType implements FawePattern, Keyed {
+public class BlockType implements Keyed {
 
     public static final NamespacedRegistry<BlockType> REGISTRY = new NamespacedRegistry<>("block type");
 
     private final String id;
-    private final BlockTypesCache.Settings settings;
+    private final Function<BlockState, BlockState> values;
+    private final LazyReference<BlockState> defaultState
+        = LazyReference.from(this::computeDefaultState);
+    private final LazyReference<FuzzyBlockState> emptyFuzzy
+        = LazyReference.from(() -> new FuzzyBlockState(this));
+    private final LazyReference<Map<String, ? extends Property<?>>> properties
+        = LazyReference.from(() -> ImmutableMap.copyOf(WorldEdit.getInstance().getPlatformManager()
+        .queryCapability(Capability.GAME_HOOKS).getRegistries().getBlockRegistry().getProperties(this)));
+    private final LazyReference<BlockMaterial> blockMaterial
+        = LazyReference.from(() -> WorldEdit.getInstance().getPlatformManager()
+        .queryCapability(Capability.GAME_HOOKS).getRegistries().getBlockRegistry().getMaterial(this));
+    private final LazyReference<Map<Map<Property<?>, Object>, BlockState>> blockStatesMap
+        = LazyReference.from(() -> BlockState.generateStateMap(this));
 
-    private boolean initItemType;
-    private ItemType itemType;
-
-    protected BlockType(String id, int internalId, List<BlockState> states) {
-        int i = id.indexOf("[");
-        this.id = i == -1 ? id : id.substring(0, i);
-        this.settings = new BlockTypesCache.Settings(this, id, internalId, states);
+    public BlockType(String id) {
+        this(id, null);
     }
 
-    @Deprecated
-    public int getMaxStateId() {
-        return settings.permutations;
+    public BlockType(String id, Function<BlockState, BlockState> values) {
+        // If it has no namespace, assume minecraft.
+        if (!id.contains(":")) {
+            id = "minecraft:" + id;
+        }
+        this.id = id;
+        this.values = values;
+    }
+
+    private BlockState computeDefaultState() {
+        BlockState defaultState = Iterables.getFirst(getBlockStatesMap().values(), null);
+        if (values != null) {
+            defaultState = values.apply(defaultState);
+        }
+        return defaultState;
+    }
+
+    private Map<Map<Property<?>, Object>, BlockState> getBlockStatesMap() {
+        return blockStatesMap.getValue();
     }
 
     /**
@@ -77,17 +100,6 @@ public class BlockType implements FawePattern, Keyed {
     @Override
     public String getId() {
         return this.id;
-    }
-
-    public String getNamespace() {
-        String id = getId();
-        int i = id.indexOf(':');
-        return i == -1 ? "minecraft" : id.substring(0, i);
-    }
-
-    public String getResource() {
-        String id = getId();
-        return id.substring(id.indexOf(':') + 1);
     }
 
     /**
@@ -103,26 +115,6 @@ public class BlockType implements FawePattern, Keyed {
             return name;
         }
     }
-    /*
-    private BlockState computeDefaultState() {
-
-        BlockState defaultState = Iterables.getFirst(getBlockStatesMap().values(), null);
-        if (values != null) {
-            defaultState = values.apply(defaultState);
-        }
-        return defaultState;
-    }
-    */
-    @Deprecated
-    public BlockState withPropertyId(int propertyId) {
-        if (settings.stateOrdinals == null) return settings.defaultState;
-        return BlockTypesCache.states[settings.stateOrdinals[propertyId]];
-    }
-
-    @Deprecated
-    public BlockState withStateId(int internalStateId) { //
-        return this.withPropertyId(internalStateId >> BlockTypesCache.BIT_OFFSET);
-    }
 
     /**
      * Gets the properties of this BlockType in a {@code key->property} mapping.
@@ -130,7 +122,7 @@ public class BlockType implements FawePattern, Keyed {
      * @return The properties map
      */
     public Map<String, ? extends Property<?>> getPropertyMap() {
-        return this.settings.propertiesMap;
+        return properties.getValue();
     }
 
     /**
@@ -139,12 +131,7 @@ public class BlockType implements FawePattern, Keyed {
      * @return the properties
      */
     public List<? extends Property<?>> getProperties() {
-        return this.settings.propertiesList; // stop changing this
-    }
-
-    @Deprecated
-    public Set<? extends Property<?>> getPropertiesSet() {
-        return this.settings.propertiesSet;
+        return ImmutableList.copyOf(this.getPropertyMap().values());
     }
 
     /**
@@ -154,20 +141,11 @@ public class BlockType implements FawePattern, Keyed {
      * @return The property
      */
     public <V> Property<V> getProperty(String name) {
-        return (Property<V>) this.settings.propertiesMap.get(name);  // stop changing this (performance)
-    }
-
-    public boolean hasProperty(PropertyKey key) {
-        int ordinal = key.ordinal();
-        return this.settings.propertiesMapArr.length > ordinal ? this.settings.propertiesMapArr[ordinal] != null : false;
-    }
-
-    public <V> Property<V> getProperty(PropertyKey key) {
-        try {
-            return (Property<V>) this.settings.propertiesMapArr[key.ordinal()];
-        } catch (IndexOutOfBoundsException ignore) {
-            return null;
-        }
+        // Assume it works, CCE later at runtime if not.
+        @SuppressWarnings("unchecked")
+        Property<V> property = (Property<V>) getPropertyMap().get(name);
+        checkArgument(property != null, "%s has no property named %s", this, name);
+        return property;
     }
 
     /**
@@ -175,13 +153,12 @@ public class BlockType implements FawePattern, Keyed {
      *
      * @return The default state
      */
-    public final BlockState getDefaultState() {
-        return this.settings.defaultState;
+    public BlockState getDefaultState() {
+        return defaultState.getValue();
     }
 
-    @Deprecated
     public FuzzyBlockState getFuzzyMatcher() {
-        return new FuzzyBlockState(this);
+        return emptyFuzzy.getValue();
     }
 
     /**
@@ -190,8 +167,7 @@ public class BlockType implements FawePattern, Keyed {
      * @return All possible states
      */
     public List<BlockState> getAllStates() {
-        if (settings.stateOrdinals == null) return Collections.singletonList(getDefaultState());
-        return IntStream.of(settings.stateOrdinals).filter(i -> i != -1).mapToObj(i -> BlockTypesCache.states[i]).collect(Collectors.toList());
+        return ImmutableList.copyOf(getBlockStatesMap().values());
     }
 
     /**
@@ -199,22 +175,10 @@ public class BlockType implements FawePattern, Keyed {
      *
      * @return The state, if it exists
      */
-    public BlockState getState(Map<Property<?>, Object> key) { //
-        int id = getInternalId();
-        for (Map.Entry<Property<?>, Object> iter : key.entrySet()) {
-            Property<?> prop = iter.getKey();
-            Object value = iter.getValue();
-
-            /*
-             * TODO:
-             * This is likely wrong. The only place this seems to currently (Dec 23 2018)
-             * be invoked is via ForgeWorld, and value is a String when invoked there...
-             */
-            AbstractProperty btp = this.settings.propertiesMap.get(prop.getName());
-            checkArgument(btp != null, "%s has no property named %s", this, prop.getName());
-            id = btp.modify(id, btp.getValueFor((String)value));
-        }
-        return withStateId(id);
+    public BlockState getState(Map<Property<?>, Object> key) {
+        BlockState state = getBlockStatesMap().get(key);
+        checkArgument(state != null, "%s has no state for %s", this, key);
+        return state;
     }
 
     /**
@@ -233,11 +197,7 @@ public class BlockType implements FawePattern, Keyed {
      */
     @Nullable
     public ItemType getItemType() {
-        if(!initItemType) {
-            initItemType = true;
-            itemType = ItemTypes.get(this.id);
-        }
-        return itemType;
+        return ItemTypes.get(this.id);
     }
 
     /**
@@ -246,7 +206,7 @@ public class BlockType implements FawePattern, Keyed {
      * @return The material
      */
     public BlockMaterial getMaterial() {
-        return this.settings.blockMaterial;
+        return blockMaterial.getValue();
     }
 
     /**
@@ -257,20 +217,13 @@ public class BlockType implements FawePattern, Keyed {
      * @return legacy id or 0, if unknown
      */
     @Deprecated
-    public int getLegacyCombinedId() {
-        Integer combinedId = LegacyMapper.getInstance().getLegacyCombined(this);
-        return combinedId == null ? 0 : combinedId;
-    }
-
-    /**
-     * The internal index of this type.
-     *
-     * This number is not necessarily consistent across restarts.
-     *
-     * @return internal id
-     */
-    public int getInternalId() {
-        return this.settings.internalId;
+    public int getLegacyId() {
+        int[] id = LegacyMapper.getInstance().getLegacyFromBlock(this.getDefaultState());
+        if (id != null) {
+            return id[0];
+        } else {
+            return 0;
+        }
     }
 
     @Override
@@ -280,41 +233,11 @@ public class BlockType implements FawePattern, Keyed {
 
     @Override
     public int hashCode() {
-        return settings.internalId; // stop changing this to WEs bad hashcode
+        return this.id.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-        return obj == this; // stop changing this to a shitty string comparison
-    }
-
-
-    @Override
-    public boolean apply(Extent extent, BlockVector3 get, BlockVector3 set) throws WorldEditException {
-        return set.setBlock(extent, getDefaultState());
-    }
-
-    @Override
-    public BaseBlock apply(BlockVector3 position) {
-        return this.getDefaultState().toBaseBlock();
-    }
-
-    public SingleBlockTypeMask toMask() {
-        return toMask(new NullExtent());
-    }
-
-    public SingleBlockTypeMask toMask(Extent extent) {
-        return new SingleBlockTypeMask(extent, this);
-    }
-
-
-    @Deprecated
-    public int getLegacyId() {
-        Integer id = LegacyMapper.getInstance().getLegacyCombined(this.getDefaultState());
-        if (id != null) {
-            return id >> 4;
-        } else {
-            return 0;
-        }
+        return obj instanceof BlockType && this.id.equals(((BlockType) obj).id);
     }
 }

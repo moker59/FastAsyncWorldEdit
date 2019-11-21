@@ -47,13 +47,7 @@ public interface InputExtent {
      * @param position position of the block
      * @return the block
      */
-    default BlockState getBlock(BlockVector3 position) {
-        return getBlock(position.getX(), position.getY(), position.getZ());
-    }
-
-    default BlockState getBlock(int x, int y, int z) {
-        return getBlock(MutableBlockVector3.get(x, y, z));
-    }
+    BlockState getBlock(BlockVector3 position);
 
     /**
      * Get a immutable snapshot of the block at the given location.
@@ -61,13 +55,7 @@ public interface InputExtent {
      * @param position position of the block
      * @return the block
      */
-    default BaseBlock getFullBlock(BlockVector3 position) {
-        return getFullBlock(position.getX(), position.getY(), position.getZ());
-    }
-
-    default BaseBlock getFullBlock(int x, int y, int z) {
-        return getFullBlock(MutableBlockVector3.get(x, y, z));
-    }
+    BaseBlock getFullBlock(BlockVector3 position);
 
     /**
      * Get the biome at the given location.
@@ -78,11 +66,6 @@ public interface InputExtent {
      * @param position the (x, z) location to check the biome at
      * @return the biome at the location
      */
-    default BiomeType getBiome(BlockVector2 position) {
-        return getBiomeType(position.getX(), position.getZ());
-    }
+    BiomeType getBiome(BlockVector2 position);
 
-    default BiomeType getBiomeType(int x, int z) {
-        return getBiome(MutableBlockVector2.get(x, z));
-    }
 }

@@ -30,82 +30,17 @@ import java.util.List;
 
 public abstract class AbstractProperty<T> implements Property<T> {
 
-    private final PropertyKey key;
     private String name;
     private List<T> values;
 
-    private final int bitMask;
-    private final int bitMaskInverse;
-    private final int bitOffset;
-    private final int numBits;
-
     public AbstractProperty(final String name, final List<T> values) {
-        this(name, values, 0);
-    }
-
-    public AbstractProperty(final String name, final List<T> values, int bitOffset) {
         this.name = name;
         this.values = values;
-        this.numBits = MathMan.log2nlz(values.size());
-        this.bitOffset = bitOffset + BlockTypesCache.BIT_OFFSET;
-        this.bitMask = (((1 << numBits) - 1)) << this.bitOffset;
-        this.bitMaskInverse = ~this.bitMask;
-        this.key = PropertyKey.getOrCreate(name);
-    }
-
-    @Override
-    public PropertyKey getKey() {
-        return key;
-    }
-
-    @Deprecated
-    public int getNumBits() {
-        return numBits;
-    }
-
-    @Deprecated
-    public int getBitOffset() {
-        return bitOffset;
-    }
-
-    @Deprecated
-    public int getBitMask() {
-        return bitMask;
-    }
-
-    //todo remove the following to allow for upstream compatibility.
-    public abstract <C extends AbstractProperty<T>> C withOffset(int bitOffset);
-
-    @Deprecated
-    public int modify(int state, T value) {
-        int index = getIndex(value);
-        if (index != -1) {
-            return modifyIndex(state, index);
-        }
-        return state;
-    }
-
-    public int modifyIndex(int state, int index) {
-        return ((state & bitMaskInverse) | (index << this.bitOffset));
-    }
-
-    public T getValue(int state) {
-        return values.get((state & bitMask) >> bitOffset);
-    }
-
-    public int getIndex(int state) {
-        return (state & bitMask) >> bitOffset;
     }
 
     @Override
     public List<T> getValues() {
         return this.values;
-    }
-
-    @Nullable
-    @Override
-    public T getValueFor(String string) throws IllegalArgumentException {
-        return (T) string;
     }
 
     @Override

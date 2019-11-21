@@ -30,7 +30,7 @@ import com.sk89q.worldedit.world.block.BlockStateHolder;
 /**
  * Returns a {@link BlockStateHolder} for a given position.
  */
-public interface Pattern extends Filter {
+public interface Pattern {
 
     /**
      * Return a {@link BlockStateHolder} for the given position.
@@ -40,12 +40,4 @@ public interface Pattern extends Filter {
      */
     BaseBlock apply(BlockVector3 position);
 
-    default boolean apply(Extent extent, BlockVector3 get, BlockVector3 set) throws WorldEditException {
-        return set.setFullBlock(extent, apply(get));
-    }
-
-    @Override
-    default void applyBlock(final FilterBlock block) {
-        apply(block, block, block);
-    }
 }

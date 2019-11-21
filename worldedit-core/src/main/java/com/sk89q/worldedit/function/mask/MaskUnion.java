@@ -54,38 +54,9 @@ public class MaskUnion extends MaskIntersection {
         super(mask);
     }
 
-    public static Mask of(Mask... masks) {
-        Set<Mask> set = new LinkedHashSet<>();
-        for (Mask mask : masks) {
-            if (mask == Masks.alwaysTrue()) {
-                return mask;
-            }
-            if (mask != null) {
-                if (mask.getClass() == MaskUnion.class) {
-                    set.addAll(((MaskUnion) mask).getMasks());
-                } else {
-                    set.add(mask);
-                }
-            }
-        }
-        switch (set.size()) {
-            case 0:
-                return Masks.alwaysTrue();
-            case 1:
-                return set.iterator().next();
-            default:
-                return new MaskUnion(masks).optimize();
-        }
-    }
-
-    @Override
-    public Function<Entry<Mask, Mask>, Mask> pairingFunction() {
-        return input -> input.getKey().tryOr(input.getValue());
-    }
-
     @Override
     public boolean test(BlockVector3 vector) {
-        Mask[] masks = getMasksArray();
+        Collection<Mask> masks = getMasks();
 
         for (Mask mask : masks) {
             if (mask.test(vector)) {

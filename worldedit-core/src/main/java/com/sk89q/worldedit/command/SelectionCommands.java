@@ -109,7 +109,6 @@ public class SelectionCommands {
 
     @Command(
         name = "/pos1",
-        aliases = "/1",
         desc = "Set position 1"
     )
     @Logging(POSITION)
@@ -138,7 +137,6 @@ public class SelectionCommands {
 
     @Command(
         name = "/pos2",
-            aliases = "/2",
         desc = "Set position 2"
     )
     @Logging(POSITION)
@@ -175,15 +173,15 @@ public class SelectionCommands {
         Location pos = player.getBlockTrace(300);
 
         if (pos != null) {
-            if (!session.getRegionSelector(player.getWorld()).selectPrimary(pos.toBlockPoint(), ActorSelectorLimits.forActor(player))) {
-                player.printError(BBC.SELECTOR_ALREADY_SET.s());
+            if (!session.getRegionSelector(player.getWorld()).selectPrimary(pos.toVector().toBlockPoint(), ActorSelectorLimits.forActor(player))) {
+                player.printError("Position already set.");
                 return;
             }
 
             session.getRegionSelector(player.getWorld())
-                    .explainPrimarySelection(player, session, pos.toBlockPoint());
+                    .explainPrimarySelection(player, session, pos.toVector().toBlockPoint());
         } else {
-            player.printError(BBC.NO_BLOCK.s());
+            player.printError("No block in sight!");
         }
     }
 
@@ -197,15 +195,15 @@ public class SelectionCommands {
         Location pos = player.getBlockTrace(300);
 
         if (pos != null) {
-            if (!session.getRegionSelector(player.getWorld()).selectSecondary(pos.toBlockPoint(), ActorSelectorLimits.forActor(player))) {
-                player.printError(BBC.SELECTOR_ALREADY_SET.s());
+            if (!session.getRegionSelector(player.getWorld()).selectSecondary(pos.toVector().toBlockPoint(), ActorSelectorLimits.forActor(player))) {
+                player.printError("Position already set.");
                 return;
             }
 
             session.getRegionSelector(player.getWorld())
-                    .explainSecondarySelection(player, session, pos.toBlockPoint());
+                    .explainSecondarySelection(player, session, pos.toVector().toBlockPoint());
         } else {
-            player.printError(BBC.NO_BLOCK.s());
+            player.printError("No block in sight!");
         }
     }
 
@@ -280,26 +278,23 @@ public class SelectionCommands {
     @CommandPermissions("worldedit.wand")
     public void wand(Player player, LocalSession session,
                         @Switch(name = 'n', desc = "Get a navigation wand") boolean navWand) throws WorldEditException {
-        session.loadDefaults(player, true);
         String wandId = navWand ? session.getNavWandItem() : session.getWandItem();
         if (wandId == null) {
             wandId = navWand ? we.getConfiguration().navigationWand : we.getConfiguration().wandItem;
         }
-        ItemType itemType = ItemTypes.parse(wandId);
+        ItemType itemType = ItemTypes.get(wandId);
         if (itemType == null) {
             player.printError("Wand item is mis-configured or disabled.");
             return;
         }
         player.giveItem(new BaseItemStack(itemType, 1));
         if (navWand) {
-            session.setTool(itemType, NavigationWand.INSTANCE);
+            session.setTool(itemType, new NavigationWand());
             player.print("Left click: jump to location; Right click: pass through walls");
         } else {
-            session.setTool(itemType, SelectionWand.INSTANCE);
-            player.print(BBC.SELECTION_WAND.s());
+            session.setTool(itemType, new SelectionWand());
+            player.print("Left click: select pos #1; Right click: select pos #2");
         }
-        if (!player.hasPermission("fawe.tips"))
-            BBC.TIP_SEL_LIST.or(BBC.TIP_SELECT_CONNECTED, BBC.TIP_SET_POS1, BBC.TIP_FARWAND, BBC.TIP_DISCORD).send(player);
     }
 
     @Command(
@@ -448,62 +443,33 @@ public class SelectionCommands {
         desc = "Get information about the selection"
     )
     @CommandPermissions("worldedit.selection.size")
-    public void size(Player player, LocalSession session,
+    public void size(Actor actor, World world, LocalSession session,
                      @Switch(name = 'c', desc = "Get clipboard info instead")
                          boolean clipboardInfo) throws WorldEditException {
         Region region;
         if (clipboardInfo) {
-            ClipboardHolder root = session.getClipboard();
-            int index = 0;
-            for (ClipboardHolder holder : root.getHolders()) {
-                Clipboard clipboard = holder.getClipboard();
-                String name;
-                if (holder instanceof URIClipboardHolder) {
-                    URI uri = ((URIClipboardHolder) holder).getUri();
-                    if (uri.toString().startsWith("file:/")) {
-                        name = new File(uri.getPath()).getName();
-                    } else {
-                        name = uri.getFragment();
-                    }
-                } else {
-                    name = Integer.toString(index);
-                }
+            ClipboardHolder holder = session.getClipboard();
+            Clipboard clipboard = holder.getClipboard();
+            region = clipboard.getRegion();
 
-                region = clipboard.getRegion();
-                BlockVector3 size = region.getMaximumPoint()
-                        .subtract(region.getMinimumPoint()).
-                        add(1, 1, 1);
-                BlockVector3 origin = clipboard.getOrigin();
-
-                String sizeStr = size.getBlockX() + "*" + size.getBlockY() + "*" + size.getBlockZ();
-                String originStr = origin.getBlockX() + "," + origin.getBlockY() + "," + origin.getBlockZ();
-
-                long numBlocks = ((long) size.getBlockX() * size.getBlockY() * size.getBlockZ());
-
-                String msg = String.format("%1$s: %2$s @ %3$s (%4$d blocks)", name, sizeStr, originStr, numBlocks);
-                player.print(msg);
-
-                index++;
-            }
-            return;
+            BlockVector3 origin = clipboard.getOrigin();
+            actor.print("Offset: " + origin);
         } else {
+            region = session.getSelection(world);
 
-            region = session.getSelection(player.getWorld());
+            actor.print("Type: " + session.getRegionSelector(world).getTypeName());
 
-            player.print("Type: " + session.getRegionSelector(player.getWorld()).getTypeName());
-
-            for (String line : session.getRegionSelector(player.getWorld()).getInformationLines()) {
-                player.print(line);
+            for (String line : session.getRegionSelector(world).getInformationLines()) {
+                actor.print(line);
             }
-
         }
         BlockVector3 size = region.getMaximumPoint()
                 .subtract(region.getMinimumPoint())
                 .add(1, 1, 1);
 
-        player.print("Size: " + size);
-        player.print("Cuboid distance: " + region.getMaximumPoint().distance(region.getMinimumPoint()));
-        player.print("# of blocks: " + region.getArea());
+        actor.print("Size: " + size);
+        actor.print("Cuboid distance: " + region.getMaximumPoint().distance(region.getMinimumPoint()));
+        actor.print("# of blocks: " + region.getArea());
     }
 
 
@@ -524,45 +490,146 @@ public class SelectionCommands {
         desc = "Get the distribution of blocks in the selection"
     )
     @CommandPermissions("worldedit.analysis.distr")
-    public void distr(Player player, LocalSession session, EditSession editSession,
+    public void distr(Actor actor, World world, LocalSession session,
                       @Switch(name = 'c', desc = "Get the distribution of the clipboard instead")
                           boolean clipboardDistr,
                       @Switch(name = 'd', desc = "Separate blocks by state")
-                          boolean separateStates) throws WorldEditException {
-        List<Countable> distribution;
+                          boolean separateStates,
+                      @ArgFlag(name = 'p', desc = "Gets page from a previous distribution.", def = "")
+                          Integer page) throws WorldEditException {
+        List<Countable<BlockState>> distribution;
 
-        Region region;
-        if (clipboardDistr) {
-            // TODO multi clipboard distribution
-            Clipboard clipboard = session.getClipboard().getClipboard(); // throws if missing
-            region = clipboard.getRegion();
-            new ExtentTraverser<AbstractDelegateExtent>(editSession).setNext(new AbstractDelegateExtent(clipboard));
+        if (page == null) {
+            if (clipboardDistr) {
+                Clipboard clipboard = session.getClipboard().getClipboard(); // throws if missing
+                BlockDistributionCounter count = new BlockDistributionCounter(clipboard, separateStates);
+                RegionVisitor visitor = new RegionVisitor(clipboard.getRegion(), count);
+                Operations.completeBlindly(visitor);
+                distribution = count.getDistribution();
+            } else {
+                try (EditSession editSession = session.createEditSession(actor)) {
+                    distribution = editSession.getBlockDistribution(session.getSelection(world), separateStates);
+                }
+            }
+            session.setLastDistribution(distribution);
+            page = 1;
         } else {
-            region = session.getSelection(player.getWorld());
+            distribution = session.getLastDistribution();
+            if (distribution == null) {
+                actor.printError("No previous distribution.");
+                return;
+            }
         }
-        if (separateStates)
-            distribution = (List) editSession.getBlockDistributionWithData(region);
-        else
-            distribution = (List) editSession.getBlockDistribution(region);
-
 
         if (distribution.isEmpty()) {  // *Should* always be false
-            player.printError("No blocks counted.");
+            actor.printError("No blocks counted.");
             return;
         }
 
-        // note: doing things like region.getArea is inaccurate for non-cuboids.
-        int size = session.getSelection(player.getWorld()).getArea();
-        BBC.SELECTION_DISTR.send(player, size);
+        final int finalPage = page;
+        WorldEditAsyncCommandBuilder.createAndSendMessage(actor,
+                () -> {
+                    BlockDistributionResult res = new BlockDistributionResult(distribution, separateStates);
+                    if (!actor.isPlayer()) res.formatForConsole();
+                    return res.create(finalPage);
+                }, null);
+    }
 
-        for (Countable c : distribution) {
-            String name = c.getID().toString();
-            String str = String.format("%-7s (%.3f%%) %s",
-                    String.valueOf(c.getAmount()),
-                    c.getAmount() / (double) size * 100,
-                    name);
-            player.print(str);
+    @Command(
+        name = "/sel",
+        aliases = { ";", "/desel", "/deselect" },
+        desc = "Choose a region selector"
+    )
+    public void select(Actor actor, World world, LocalSession session,
+                       @Arg(desc = "Selector to switch to", def = "")
+                           SelectorChoice selector,
+                       @Switch(name = 'd', desc = "Set default selector")
+                           boolean setDefaultSelector) throws WorldEditException {
+        if (selector == null) {
+            session.getRegionSelector(world).clear();
+            session.dispatchCUISelection(actor);
+            actor.print("Selection cleared.");
+            return;
         }
+
+        final RegionSelector oldSelector = session.getRegionSelector(world);
+
+        final RegionSelector newSelector;
+        switch (selector) {
+            case CUBOID:
+                newSelector = new CuboidRegionSelector(oldSelector);
+                actor.print("Cuboid: left click for point 1, right click for point 2");
+                break;
+            case EXTEND:
+                newSelector = new ExtendingCuboidRegionSelector(oldSelector);
+                actor.print("Cuboid: left click for a starting point, right click to extend");
+                break;
+            case POLY: {
+                newSelector = new Polygonal2DRegionSelector(oldSelector);
+                actor.print("2D polygon selector: Left/right click to add a point.");
+                Optional<Integer> limit = ActorSelectorLimits.forActor(actor).getPolygonVertexLimit();
+                limit.ifPresent(integer -> actor.print(integer + " points maximum."));
+                break;
+            }
+            case ELLIPSOID:
+                newSelector = new EllipsoidRegionSelector(oldSelector);
+                actor.print("Ellipsoid selector: left click=center, right click to extend");
+                break;
+            case SPHERE:
+                newSelector = new SphereRegionSelector(oldSelector);
+                actor.print("Sphere selector: left click=center, right click to set radius");
+                break;
+            case CYL:
+                newSelector = new CylinderRegionSelector(oldSelector);
+                actor.print("Cylindrical selector: Left click=center, right click to extend.");
+                break;
+            case CONVEX:
+            case HULL:
+            case POLYHEDRON: {
+                newSelector = new ConvexPolyhedralRegionSelector(oldSelector);
+                actor.print("Convex polyhedral selector: Left click=First vertex, right click to add more.");
+                Optional<Integer> limit = ActorSelectorLimits.forActor(actor).getPolyhedronVertexLimit();
+                limit.ifPresent(integer -> actor.print(integer + " points maximum."));
+                break;
+            }
+            case LIST:
+            default:
+                CommandListBox box = new CommandListBox("Selection modes", null, null);
+                box.setHidingHelp(true);
+                TextComponentProducer contents = box.getContents();
+                contents.append(SubtleFormat.wrap("Select one of the modes below:")).newline();
+
+                box.appendCommand("cuboid", "Select two corners of a cuboid", "//sel cuboid");
+                box.appendCommand("extend", "Fast cuboid selection mode", "//sel extend");
+                box.appendCommand("poly", "Select a 2D polygon with height", "//sel poly");
+                box.appendCommand("ellipsoid", "Select an ellipsoid", "//sel ellipsoid");
+                box.appendCommand("sphere", "Select a sphere", "//sel sphere");
+                box.appendCommand("cyl", "Select a cylinder", "//sel cyl");
+                box.appendCommand("convex", "Select a convex polyhedral", "//sel convex");
+
+                actor.print(box.create(1));
+                return;
+        }
+
+        if (setDefaultSelector) {
+            RegionSelectorType found = null;
+            for (RegionSelectorType type : RegionSelectorType.values()) {
+                if (type.getSelectorClass() == newSelector.getClass()) {
+                    found = type;
+                    break;
+                }
+            }
+
+            if (found != null) {
+                session.setDefaultRegionSelector(found);
+                actor.print("Your default region selector is now " + found.name() + ".");
+            } else {
+                throw new RuntimeException("Something unexpected happened. Please report this.");
+            }
+        }
+
+        session.setRegionSelector(world, newSelector);
+        session.dispatchCUISelection(actor);
     }
 
     private static class BlockDistributionResult extends PaginationBox {
@@ -622,122 +689,5 @@ public class SelectionCommands {
                     .append(TextComponent.newline());
             return super.create(page);
         }
-    }
-
-    @Command(
-        name = "/sel",
-        aliases = { ";", "/desel", "/deselect" },
-        desc = "Choose a region selector"
-    )
-    public void select(Actor actor, World world, LocalSession session,
-                       @Arg(desc = "Selector to switch to", def = "")
-                           SelectorChoice selector,
-                       @Arg(desc = "Selector mask", def = "") Mask maskOpt,
-                       @Switch(name = 'd', desc = "Set default selector")
-                           boolean setDefaultSelector) throws WorldEditException {
-        if (selector == null) {
-            session.getRegionSelector(world).clear();
-            session.dispatchCUISelection(actor);
-            actor.print(BBC.SELECTION_CLEARED.s());
-            return;
-        }
-
-        final RegionSelector oldSelector = session.getRegionSelector(world);
-
-        final RegionSelector newSelector;
-        switch (selector) {
-            case CUBOID:
-                newSelector = new CuboidRegionSelector(oldSelector);
-                actor.print(BBC.SEL_CUBOID.s());
-                break;
-            case EXTEND:
-                newSelector = new ExtendingCuboidRegionSelector(oldSelector);
-                actor.print(BBC.SEL_CUBOID_EXTEND.s());
-                break;
-            case POLY: {
-                newSelector = new Polygonal2DRegionSelector(oldSelector);
-                actor.print(BBC.SEL_2D_POLYGON.s());
-                Optional<Integer> limit = ActorSelectorLimits.forActor(actor).getPolygonVertexLimit();
-                limit.ifPresent(integer -> actor.print(BBC.SEL_MAX.format(integer)));
-                break;
-            }
-            case ELLIPSOID:
-                newSelector = new EllipsoidRegionSelector(oldSelector);
-                actor.print(BBC.SAL_ELLIPSOID.s());
-                break;
-            case SPHERE:
-                newSelector = new SphereRegionSelector(oldSelector);
-                actor.print(BBC.SEL_SPHERE.s());
-                break;
-            case CYL:
-                newSelector = new CylinderRegionSelector(oldSelector);
-                actor.print(BBC.SEL_CYLINDRICAL.s());
-                break;
-            case CONVEX:
-            case HULL:
-            case POLYHEDRON: {
-                newSelector = new ConvexPolyhedralRegionSelector(oldSelector);
-                actor.print(BBC.SEL_CONVEX_POLYHEDRAL.s());
-                Optional<Integer> limit = ActorSelectorLimits.forActor(actor).getPolyhedronVertexLimit();
-                limit.ifPresent(integer -> actor.print(BBC.SEL_MAX.format(integer)));
-                break;
-            }
-            case POLYHEDRAL:
-                newSelector = new PolyhedralRegionSelector(world);
-                actor.print(BBC.SEL_CONVEX_POLYHEDRAL.s());
-                Optional<Integer> limit = ActorSelectorLimits.forActor(actor).getPolyhedronVertexLimit();
-                limit.ifPresent(integer -> actor.print(BBC.SEL_MAX.format(integer)));
-                actor.print(BBC.SEL_LIST.s());
-                break;
-            case FUZZY:
-            case MAGIC:
-                if (maskOpt == null) {
-                    maskOpt = new IdMask(world);
-                }
-                //TODO Make FuzzyRegionSelector accept actors
-                newSelector = new FuzzyRegionSelector((Player) actor, world, maskOpt);
-                actor.print(BBC.SEL_FUZZY.s());
-                actor.print(BBC.SEL_LIST.s());
-                break;
-            case LIST:
-            default:
-                CommandListBox box = new CommandListBox("Selection modes", null, null);
-                box.setHidingHelp(true);
-                TextComponentProducer contents = box.getContents();
-                contents.append(SubtleFormat.wrap("Select one of the modes below:")).newline();
-
-                box.appendCommand("cuboid", "Select two corners of a cuboid", "//sel cuboid");
-                box.appendCommand("extend", "Fast cuboid selection mode", "//sel extend");
-                box.appendCommand("poly", "Select a 2D polygon with height", "//sel poly");
-                box.appendCommand("ellipsoid", "Select an ellipsoid", "//sel ellipsoid");
-                box.appendCommand("sphere", "Select a sphere", "//sel sphere");
-                box.appendCommand("cyl", "Select a cylinder", "//sel cyl");
-                box.appendCommand("convex", "Select a convex polyhedral", "//sel convex");
-                box.appendCommand("polyhedral", "Select a hollow polyhedral", "//sel polyhedral");
-                box.appendCommand("fuzzy[=<mask>]", "Select all connected blocks (magic wand)", "//sel fuzzy[=<mask>]");
-
-                actor.print(box.create(1));
-                return;
-        }
-
-        if (setDefaultSelector) {
-            RegionSelectorType found = null;
-            for (RegionSelectorType type : RegionSelectorType.values()) {
-                if (type.getSelectorClass() == newSelector.getClass()) {
-                    found = type;
-                    break;
-                }
-            }
-
-            if (found != null) {
-                session.setDefaultRegionSelector(found);
-                BBC.SELECTOR_SET_DEFAULT.send(actor, found.name());
-            } else {
-                throw new RuntimeException("Something unexpected happened. Please report this.");
-            }
-        }
-
-        session.setRegionSelector(world, newSelector);
-        session.dispatchCUISelection(actor);
     }
 }

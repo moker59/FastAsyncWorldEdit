@@ -42,23 +42,62 @@ public class GravityBrush implements Brush {
 
     @Override
     public void build(EditSession editSession, BlockVector3 position, Pattern pattern, double size) throws MaxChangedBlocksException {
-        double endY = position.getY() + size;
-        double startPerformY = Math.max(0, position.getY() - size);
-        double startCheckY = fullHeight ? 0 : startPerformY;
-        for (double x = position.getX() + size; x > position.getX() - size; --x) {
-            for (double z = position.getZ() + size; z > position.getZ() - size; --z) {
-                double freeSpot = startCheckY;
-                for (double y = startCheckY; y <= endY; y++) {
-                    BlockState block = editSession.getBlock((int)x, (int)y, (int)z);
-                    if (!block.getBlockType().getMaterial().isAir()) {
-                        if (y != freeSpot) {
-                            editSession.setBlock((int)x, (int)y, (int)z, BlockTypes.AIR.getDefaultState());
-                            editSession.setBlock((int)x, (int)freeSpot, (int)z, block);
+        double yMax = fullHeight ? editSession.getWorld().getMaxY() : position.getY() + size;
+        double yMin = Math.max(position.getY() - size, 0);
+        LocatedBlockList column = new LocatedBlockList();
+        Set<BlockVector3> removedBlocks = new LinkedHashSet<>();
+        for (double x = position.getX() - size; x <= position.getX() + size; x++) {
+            for (double z = position.getZ() - size; z <= position.getZ() + size; z++) {
+                /*
+                 * Algorithm:
+                 * 1. Find lowest air block in the selection -> $lowestAir = position
+                 * 2. Move the first non-air block above it down to $lowestAir
+                 * 3. Add 1 to $lowestAir's y-coord.
+                 * 4. If more blocks above current position, repeat from 2
+                 */
+
+                BlockVector3 lowestAir = null;
+                for (double y = yMin; y <= yMax; y++) {
+                    BlockVector3 pt = BlockVector3.at(x, y, z);
+
+                    BaseBlock block = editSession.getFullBlock(pt);
+
+                    if (block.getBlockType().getMaterial().isAir()) {
+                        if (lowestAir == null) {
+                            // we found the lowest air block
+                            lowestAir = pt;
                         }
-                        freeSpot = y + 1;
+                        continue;
                     }
+
+                    if (lowestAir == null) {
+                        // no place to move the block to
+                        continue;
+                    }
+
+                    BlockVector3 newPos = lowestAir;
+                    // we know the block above must be air,
+                    // since either this block is being moved into it,
+                    // or there has been more air before this block
+                    lowestAir = lowestAir.add(0, 1, 0);
+
+                    removedBlocks.remove(newPos);
+                    column.add(newPos, block);
+                    removedBlocks.add(pt);
                 }
+
+                for (LocatedBlock block : column) {
+                    editSession.setBlock(block.getLocation(), block.getBlock());
+                }
+
+                for (BlockVector3 removedBlock : removedBlocks) {
+                    editSession.setBlock(removedBlock, BlockTypes.AIR.getDefaultState());
+                }
+
+                column.clear();
+                removedBlocks.clear();
             }
         }
     }
+
 }

@@ -99,7 +99,7 @@ public class ExtentEntityCopy implements EntityFunction {
     @Override
     public boolean apply(Entity entity) throws WorldEditException {
         BaseEntity state = entity.getState();
-        if (state != null && state.getType() != EntityTypes.PLAYER) {
+        if (state != null) {
             Location newLocation;
             Location location = entity.getLocation();
             // If the entity has stored the location in the NBT data, we use that location

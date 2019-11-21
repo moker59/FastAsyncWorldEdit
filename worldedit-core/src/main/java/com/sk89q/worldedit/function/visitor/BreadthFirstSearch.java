@@ -50,65 +50,21 @@ import java.util.List;
  */
 public abstract class BreadthFirstSearch implements Operation {
 
-    public static final BlockVector3[] DEFAULT_DIRECTIONS = new BlockVector3[6];
-    public static final BlockVector3[] DIAGONAL_DIRECTIONS;
-
-    static {
-        DEFAULT_DIRECTIONS[0] = (BlockVector3.at(0, -1, 0));
-        DEFAULT_DIRECTIONS[1] = (BlockVector3.at(0, 1, 0));
-        DEFAULT_DIRECTIONS[2] = (BlockVector3.at(-1, 0, 0));
-        DEFAULT_DIRECTIONS[3] = (BlockVector3.at(1, 0, 0));
-        DEFAULT_DIRECTIONS[4] = (BlockVector3.at(0, 0, -1));
-        DEFAULT_DIRECTIONS[5] = (BlockVector3.at(0, 0, 1));
-        List<BlockVector3> list = new ArrayList<>();
-        for (int x = -1; x <= 1; x++) {
-            for (int y = -1; y <= 1; y++) {
-                for (int z = -1; z <= 1; z++) {
-                    if (x != 0 || y != 0 || z != 0) {
-                        BlockVector3 pos = BlockVector3.at(x, y, z);
-                        if (!list.contains(pos)) {
-                            list.add(pos);
-                        }
-                    }
-                }
-            }
-        }
-        list.sort((o1, o2) -> (int) Math.signum(o1.lengthSq() - o2.lengthSq()));
-        DIAGONAL_DIRECTIONS = list.toArray(new BlockVector3[0]);
-    }
-
     private final RegionFunction function;
-    private BlockVectorSet queue = new BlockVectorSet();
-    private BlockVectorSet visited = new BlockVectorSet();
-    private BlockVector3[] directions;
+    private final Queue<BlockVector3> queue = new ArrayDeque<>();
+    private final Set<BlockVector3> visited = new HashSet<>();
+    private final List<BlockVector3> directions = new ArrayList<>();
     private int affected = 0;
-    private int currentDepth = 0;
-    private final int maxDepth;
-    private int maxBranch = Integer.MAX_VALUE;
 
     /**
      * Create a new instance.
      *
      * @param function the function to apply to visited blocks
      */
-    public BreadthFirstSearch(RegionFunction function) {
-        this(function, Integer.MAX_VALUE);
-        checkNotNull(function);
-    }
-
-    public BreadthFirstSearch(RegionFunction function, int maxDepth) {
+    protected BreadthFirstSearch(RegionFunction function) {
         checkNotNull(function);
         this.function = function;
-        this.directions = DEFAULT_DIRECTIONS;
-        this.maxDepth = maxDepth;
-    }
-
-    public void setDirections(BlockVector3... directions) {
-        this.directions = directions;
-    }
-
-    public void setDirections(Collection<BlockVector3> directions) {
-        setDirections(directions.toArray(new BlockVector3[0]));
+        addAxes();
     }
 
     /**
@@ -123,34 +79,30 @@ public abstract class BreadthFirstSearch implements Operation {
      *
      * @return the list of directions
      */
-    public Collection<BlockVector3> getDirections() {
-        return Arrays.asList(directions);
+    protected Collection<BlockVector3> getDirections() {
+        return directions;
     }
 
     /**
      * Add the directions along the axes as directions to visit.
      */
-    public void addAxes() {
-        HashSet<BlockVector3> set = Sets.newHashSet(directions);
-        set.add(BlockVector3.UNIT_MINUS_Y);
-        set.add(BlockVector3.UNIT_Y);
-        set.add(BlockVector3.UNIT_MINUS_X);
-        set.add(BlockVector3.UNIT_X);
-        set.add(BlockVector3.UNIT_MINUS_Z);
-        set.add(BlockVector3.UNIT_Z);
-        setDirections(set);
+    protected void addAxes() {
+        directions.add(BlockVector3.UNIT_MINUS_Y);
+        directions.add(BlockVector3.UNIT_Y);
+        directions.add(BlockVector3.UNIT_MINUS_X);
+        directions.add(BlockVector3.UNIT_X);
+        directions.add(BlockVector3.UNIT_MINUS_Z);
+        directions.add(BlockVector3.UNIT_Z);
     }
 
     /**
      * Add the diagonal directions as directions to visit.
      */
-    public void addDiagonal() {
-        HashSet<BlockVector3> set = Sets.newHashSet(directions);
-        set.add(Direction.NORTHEAST.toBlockVector());
-        set.add(Direction.SOUTHEAST.toBlockVector());
-        set.add(Direction.SOUTHWEST.toBlockVector());
-        set.add(Direction.NORTHWEST.toBlockVector());
-        setDirections(set);
+    protected void addDiagonal() {
+        directions.add(Direction.NORTHEAST.toBlockVector());
+        directions.add(Direction.SOUTHEAST.toBlockVector());
+        directions.add(Direction.SOUTHWEST.toBlockVector());
+        directions.add(Direction.NORTHWEST.toBlockVector());
     }
 
     /**
@@ -170,7 +122,6 @@ public abstract class BreadthFirstSearch implements Operation {
     public void visit(BlockVector3 position) {
         BlockVector3 blockVector = position;
         if (!visited.contains(blockVector)) {
-            isVisitable(position, position); // Ignore this, just to initialize mask on this point
             queue.add(blockVector);
             visited.add(blockVector);
         }
@@ -190,22 +141,6 @@ public abstract class BreadthFirstSearch implements Operation {
                 queue.add(blockVector);
             }
         }
-    }
-
-    public void setVisited(BlockVectorSet set) {
-        this.visited = set;
-    }
-
-    public BlockVectorSet getVisited() {
-        return visited;
-    }
-
-    public boolean isVisited(BlockVector3 pos) {
-        return visited.contains(pos);
-    }
-
-    public void setMaxBranch(int maxBranch) {
-        this.maxBranch = maxBranch;
     }
 
     /**
@@ -229,55 +164,28 @@ public abstract class BreadthFirstSearch implements Operation {
 
     @Override
     public Operation resume(RunContext run) throws WorldEditException {
-        MutableBlockVector3 mutable = new MutableBlockVector3();
-        BlockVector3[] dirs = directions;
-        BlockVectorSet tempQueue = new BlockVectorSet();
-        for (currentDepth = 0; !queue.isEmpty() && currentDepth <= maxDepth; currentDepth++) {
-            for (BlockVector3 from : queue) {
-                if (function.apply(from)) affected++;
-                for (int i = 0, j = 0; i < dirs.length && j < maxBranch; i++) {
-                    BlockVector3 direction = dirs[i];
-                    int y = from.getBlockY() + direction.getY();
-                    if (y < 0 || y >= 256) {
-                        continue;
-                    }
-                    int x = from.getBlockX() + direction.getX();
-                    int z = from.getBlockZ() + direction.getZ();
-                    if (!visited.contains(x, y, z)) {
-                        if (isVisitable(from, mutable.setComponents(x, y, z))) {
-                            j++;
-                            visited.add(x, y, z);
-                            tempQueue.add(x, y, z);
-                        }
-                    }
-                }
+        BlockVector3 position;
+        
+        while ((position = queue.poll()) != null) {
+            if (function.apply(position)) {
+                affected++;
             }
-            if (currentDepth == maxDepth) {
-                break;
+
+            for (BlockVector3 dir : directions) {
+                visit(position, position.add(dir));
             }
-            BlockVectorSet tmp = queue;
-            queue = tempQueue;
-            tmp.clear();
-            tempQueue = tmp;
         }
 
         return null;
     }
 
-    public int getDepth() {
-        return currentDepth;
-    }
-
     @Override
     public void cancel() {
-        queue.clear();
-        visited.clear();
-        affected = 0;
     }
 
     @Override
     public void addStatusMessages(List<String> messages) {
-        messages.add(BBC.VISITOR_BLOCK.format(getAffected()));
+        messages.add(getAffected() + " blocks affected");
     }
 
 }

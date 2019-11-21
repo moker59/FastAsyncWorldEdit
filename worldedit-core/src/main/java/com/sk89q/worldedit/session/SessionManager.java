@@ -166,7 +166,6 @@ public class SessionManager {
             session.setConfiguration(config);
             session.setBlockChangeLimit(config.defaultChangeLimit);
             session.setTimeout(config.calculationTimeout);
-            /*
             try {
                 if (owner.hasPermission("worldedit.selection.pos")) {
                     setDefaultWand(session.getWandItem(), config.wandItem, session, new SelectionWand());
@@ -180,7 +179,6 @@ public class SessionManager {
                     log.warn("Invalid wand tool set in config. Tool will not be assigned: " + e.getItemType());
                 }
             }
-            */
 
             // Remember the session regardless of if it's currently active or not.
             // And have the SessionTracker FLUSH inactive sessions.
@@ -325,8 +323,7 @@ public class SessionManager {
                 stored.lastActive = now;
 
                 if (stored.session.compareAndResetDirty()) {
-                    // Don't save unless player disconnects
-                    // saveQueue.put(stored.key, stored.session);
+                    saveQueue.put(stored.key, stored.session);
                 }
             } else {
                 if (now - stored.lastActive > EXPIRATION_GRACE) {

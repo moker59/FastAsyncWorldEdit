@@ -50,8 +50,6 @@ public final class EnumConverter {
                 null));
         commandManager.registerConverter(Key.of(HookMode.class),
             basic(HookMode.class));
-        commandManager.registerConverter(Key.of(Scroll.Action.class),
-            basic(Scroll.Action.class));
     }
 
     private static <E extends Enum<E>> ArgumentConverter<E> basic(Class<E> enumClass) {

@@ -58,7 +58,6 @@ public class RecursivePickaxe implements BlockTool {
     @Override
     public boolean actPrimary(Platform server, LocalConfiguration config, Player player, LocalSession session, Location clicked) {
         World world = (World) clicked.getExtent();
-        final BlockVector3 pos = clicked.toBlockPoint();
 
         BlockVector3 origin = clicked.toVector().toBlockPoint();
         BlockType initialType = world.getBlock(origin).getBlockType();
@@ -74,15 +73,14 @@ public class RecursivePickaxe implements BlockTool {
         try (EditSession editSession = session.createEditSession(player)) {
             editSession.getSurvivalExtent().setToolUse(config.superPickaxeManyDrop);
 
-            final int radius = (int) range;
-            final BlockReplace replace = new BlockReplace(editSession, (BlockTypes.AIR.getDefaultState()));
-            editSession.setMask(null);
-            RecursiveVisitor visitor = new RecursiveVisitor(new IdMask(editSession), replace, radius);
-            visitor.visit(pos);
-            Operations.completeBlindly(visitor);
-
-            editSession.flushQueue();
-            session.remember(editSession);
+            try {
+                recurse(server, editSession, world, clicked.toVector().toBlockPoint(),
+                        clicked.toVector().toBlockPoint(), range, initialType, new HashSet<>());
+            } catch (MaxChangedBlocksException e) {
+                player.printError("Max blocks change limit reached.");
+            } finally {
+                session.remember(editSession);
+            }
         }
 
         return true;
@@ -119,4 +117,5 @@ public class RecursivePickaxe implements BlockTool {
         recurse(server, editSession, world, pos.add(0, -1, 0),
                 origin, size, initialType, visited);
     }
+
 }

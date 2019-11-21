@@ -62,10 +62,6 @@ public class BaseEntity implements NbtValued {
         setNbtData(nbtData);
     }
 
-    public BaseEntity(CompoundTag tag) {
-        this(EntityTypes.parse(tag.getString("Id")), tag);
-    }
-
     /**
      * Create a new base entity with no NBT data.
      *
@@ -84,10 +80,6 @@ public class BaseEntity implements NbtValued {
         checkNotNull(other);
         this.type = other.getType();
         setNbtData(other.getNbtData());
-    }
-
-    public Location getLocation(Extent extent) {
-        return nbtData.getEntityLocation(extent);
     }
 
     @Override

@@ -96,12 +96,12 @@ public class ScriptingCommands {
         String lastScript = session.getLastScript();
 
         if (!player.hasPermission("worldedit.scripting.execute." + lastScript)) {
-            player.printError(BBC.SCRIPTING_NO_PERM.s());
+            player.printError("You don't have permission to use that script.");
             return;
         }
 
         if (lastScript == null) {
-            player.printError(BBC.SCRIPTING_CS.s());
+            player.printError("Use /cs with a script name first.");
             return;
         }
 

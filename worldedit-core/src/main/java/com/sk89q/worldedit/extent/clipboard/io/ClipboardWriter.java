@@ -47,18 +47,4 @@ public interface ClipboardWriter extends Closeable {
      */
     void write(Clipboard clipboard) throws IOException;
 
-    default Tag writeVector(Vector3 vector) {
-        List<DoubleTag> list = new ArrayList<>();
-        list.add(new DoubleTag(vector.getX()));
-        list.add(new DoubleTag(vector.getY()));
-        list.add(new DoubleTag(vector.getZ()));
-        return new ListTag(DoubleTag.class, list);
-    }
-
-    default Tag writeRotation(Location location) {
-        List<FloatTag> list = new ArrayList<>();
-        list.add(new FloatTag(location.getYaw()));
-        list.add(new FloatTag(location.getPitch()));
-        return new ListTag(FloatTag.class, list);
-    }
 }

@@ -101,18 +101,4 @@ public class SurvivalModeExtent extends AbstractDelegateExtent {
         }
     }
 
-    @Override
-    public <B extends BlockStateHolder<B>> boolean setBlock(int x, int y, int z, B block) throws WorldEditException {
-        if (toolUse && block.getBlockType().getMaterial().isAir()) {
-            world.simulateBlockMine(BlockVector3.at(x, y, z));
-            return true;
-        } else {
-            // Can't be an inlined check due to inconsistent generic return type
-            if (stripNbt) {
-                return super.setBlock(x, y, z, block.toBaseBlock(null));
-            } else {
-                return super.setBlock(x, y, z, block);
-            }
-        }
-    }
 }

@@ -84,12 +84,12 @@ public class ApplyBrushCommands {
             );
 
             builder.condition(new PermissionCondition(ImmutableSet.of("worldedit.brush.apply")));
+
             builder.addParts(REGION_FACTORY, RADIUS);
             builder.addPart(SubCommandPart.builder(TranslatableComponent.of("type"), TextComponent.of("Type of brush to use"))
-                    .withCommands(manager.getAllCommands().collect(Collectors.toList()))
-                    .required()
-                    .build());
-
+                .withCommands(manager.getAllCommands().collect(Collectors.toList()))
+                .required()
+                .build());
         });
     }
 
@@ -97,7 +97,7 @@ public class ApplyBrushCommands {
                                Contextual<? extends RegionFunction> generatorFactory) throws WorldEditException {
         double radius = requireNonNull(RADIUS.value(parameters).asSingle(double.class));
         RegionFactory regionFactory = REGION_FACTORY.value(parameters).asSingle(RegionFactory.class);
-        BrushCommands.setOperationBasedBrush(player, localSession, Expression.compile(Double.toString(radius)),
+        BrushCommands.setOperationBasedBrush(player, localSession, radius,
             new Apply(generatorFactory), regionFactory, "worldedit.brush.apply");
     }
 

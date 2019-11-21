@@ -36,10 +36,4 @@ public interface ItemRegistry {
     @Nullable
     String getName(ItemType itemType);
 
-    /**
-     * Register all items
-     */
-    default Collection<String> values() {
-        return Collections.emptyList();
-    }
 }

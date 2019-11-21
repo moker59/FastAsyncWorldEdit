@@ -100,11 +100,11 @@ public class PaintBrushCommands {
     }
 
     private void setPaintBrush(CommandParameters parameters, Player player, LocalSession localSession,
-        Contextual<? extends RegionFunction> generatorFactory) throws WorldEditException {
+                               Contextual<? extends RegionFunction> generatorFactory) throws WorldEditException {
         double radius = requireNonNull(RADIUS.value(parameters).asSingle(double.class));
         double density = requireNonNull(DENSITY.value(parameters).asSingle(double.class)) / 100;
         RegionFactory regionFactory = REGION_FACTORY.value(parameters).asSingle(RegionFactory.class);
-        BrushCommands.setOperationBasedBrush(player, localSession, Expression.compile(Double.toString(radius)),
+        BrushCommands.setOperationBasedBrush(player, localSession, radius,
             new Paint(generatorFactory, density), regionFactory, "worldedit.brush.paint");
     }
 
@@ -113,9 +113,9 @@ public class PaintBrushCommands {
         desc = "Plant trees"
     )
     public void forest(CommandParameters parameters,
-        Player player, LocalSession localSession,
-        @Arg(desc = "The type of tree to plant")
-            TreeGenerator.TreeType type) throws WorldEditException {
+                       Player player, LocalSession localSession,
+                       @Arg(desc = "The type of tree to plant")
+                           TreeGenerator.TreeType type) throws WorldEditException {
         setPaintBrush(parameters, player, localSession, new TreeGeneratorFactory(type));
     }
 
@@ -125,15 +125,15 @@ public class PaintBrushCommands {
     )
     @CommandPermissions("worldedit.brush.item")
     public void item(CommandParameters parameters,
-        Player player, LocalSession localSession,
-        @Arg(desc = "The type of item to use")
-            BaseItem item,
-        @Arg(desc = "The direction in which the item will be applied", def = "up")
-        @Direction(includeDiagonals = true)
-            com.sk89q.worldedit.util.Direction direction) throws WorldEditException {
+                     Player player, LocalSession localSession,
+                     @Arg(desc = "The type of item to use")
+                         BaseItem item,
+                     @Arg(desc = "The direction in which the item will be applied", def = "up")
+                     @Direction(includeDiagonals = true)
+                         com.sk89q.worldedit.util.Direction direction) throws WorldEditException {
         player.print(TextComponent.builder().append("WARNING: ", TextColor.RED, TextDecoration.BOLD)
-            .append("This brush simulates item usages. Its effects may not work on all platforms, may not be undo-able," +
-                " and may cause strange interactions with other mods/plugins. Use at your own risk.").build());
+                .append("This brush simulates item usages. Its effects may not work on all platforms, may not be undo-able," +
+                        " and may cause strange interactions with other mods/plugins. Use at your own risk.").build());
         setPaintBrush(parameters, player, localSession, new ItemUseFactory(item, direction));
     }
 
@@ -142,9 +142,9 @@ public class PaintBrushCommands {
         desc = "Place a block"
     )
     public void set(CommandParameters parameters,
-        Player player, LocalSession localSession,
-        @Arg(desc = "The pattern of blocks to use")
-            Pattern pattern) throws WorldEditException {
+                    Player player, LocalSession localSession,
+                    @Arg(desc = "The pattern of blocks to use")
+                        Pattern pattern) throws WorldEditException {
         setPaintBrush(parameters, player, localSession, new ReplaceFactory(pattern));
     }
 

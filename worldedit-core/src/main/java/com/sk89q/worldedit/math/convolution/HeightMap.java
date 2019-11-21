@@ -42,9 +42,7 @@ import javax.annotation.Nullable;
  */
 public class HeightMap {
 
-    private final boolean layers;
     private int[] data;
-    private boolean[] invalid;
     private int width;
     private int height;
 
@@ -57,15 +55,7 @@ public class HeightMap {
      * @param session an edit session
      * @param region the region
      */
-    public HeightMap(EditSession session, Region region) {
-        this(session, region, (Mask) null, false);
-    }
-
     public HeightMap(EditSession session, Region region, @Nullable Mask mask) {
-        this(session, region, mask, false);
-    }
-
-    public HeightMap(EditSession session, Region region, @Nullable Mask mask, boolean layers) {
         checkNotNull(session);
         checkNotNull(region);
 
@@ -75,8 +65,6 @@ public class HeightMap {
         this.width = region.getWidth();
         this.height = region.getLength();
 
-        this.layers = layers;
-
         int minX = region.getMinimumPoint().getBlockX();
         int minY = region.getMinimumPoint().getBlockY();
         int minZ = region.getMinimumPoint().getBlockZ();
@@ -84,63 +72,16 @@ public class HeightMap {
 
         // Store current heightmap data
         data = new int[width * height];
-        invalid = new boolean[data.length];
-
-        if (layers) {
-            BlockVector3 min = region.getMinimumPoint();
-            int bx = min.getBlockX();
-            int bz = min.getBlockZ();
-            Iterator<BlockVector2> flat = Regions.asFlatRegion(region).asFlatRegion().iterator();
-            int layer = 0;
-            while (flat.hasNext()) {
-                BlockVector2 pos = flat.next();
-                int x = pos.getBlockX();
-                int z = pos.getBlockZ();
-                layer = session.getNearestSurfaceLayer(x, z, (layer + 7) >> 3, 0, maxY);
-                data[(z - bz) * width + (x - bx)] = layer;
-            }
-        } else {
-            // Store current heightmap data
-            int index = 0;
-            int yTmp = 255;
-            for (int z = 0; z < height; ++z) {
-                for (int x = 0; x < width; ++x, index++) {
-                    if (mask != null)
-                        yTmp = session.getNearestSurfaceTerrainBlock(x + minX, z + minZ, yTmp, minY, maxY, Integer.MIN_VALUE, Integer.MAX_VALUE, mask);
-                    else
-                        yTmp = session.getNearestSurfaceTerrainBlock(x + minX, z + minZ, yTmp, minY, maxY, Integer.MIN_VALUE, Integer.MAX_VALUE);
-                    switch (yTmp) {
-                        case Integer.MIN_VALUE:
-                            yTmp = minY;
-                            invalid[index] = true;
-                            break;
-                        case Integer.MAX_VALUE:
-                            yTmp = maxY;
-                            invalid[index] = true;
-                            break;
-                    }
-                    data[index] = yTmp;
-                }
+        for (int z = 0; z < height; ++z) {
+            for (int x = 0; x < width; ++x) {
+                data[z * width + x] = session.getHighestTerrainBlock(x + minX, z + minZ, minY, maxY, mask);
             }
         }
     }
 
-    @Deprecated
-    public HeightMap(EditSession session, Region region, int[] data, boolean layers) {
-        this.session = session;
-        this.region = region;
-
-        this.width = region.getWidth();
-        this.height = region.getLength();
-
-        this.data = data;
-
-        this.layers = layers;
-    }
-
     /**
      * Apply the filter 'iterations' amount times.
-     *
+     * 
      * @param filter the filter
      * @param iterations the number of iterations
      * @return number of blocks affected
@@ -157,95 +98,12 @@ public class HeightMap {
             newData = filter.filter(newData, width, height);
         }
 
-        return layers ? applyLayers(newData) : apply(newData);
-    }
-
-    public int applyLayers(int[] data) {
-        checkNotNull(data);
-
-        BlockVector3 minY = region.getMinimumPoint();
-        int originX = minY.getBlockX();
-        int originZ = minY.getBlockZ();
-
-        int maxY = region.getMaximumPoint().getBlockY();
-
-        BlockState fillerAir = BlockTypes.AIR.getDefaultState();
-
-        int blocksChanged = 0;
-
-        BlockStateHolder tmpBlock = BlockTypes.AIR.getDefaultState();
-
-        int maxY4 = maxY << 4;
-        int index = 0;
-
-        // Apply heightmap
-        for (int z = 0; z < height; ++z) {
-            int zr = z + originZ;
-            for (int x = 0; x < width; ++x) {
-                if (this.invalid != null && this.invalid[index]) continue;
-                int curHeight = this.data[index];
-
-                //Clamp newHeight within the selection area
-                int newHeight = Math.min(maxY4, data[index++]);
-
-                int curBlock = (curHeight) >> 4;
-                int newBlock = (newHeight + 15) >> 4;
-
-                // Offset x,z to be 'real' coordinates
-                int xr = x + originX;
-
-                // Depending on growing or shrinking we need to start at the bottom or top
-                if (newHeight > curHeight) {
-                    // Set the top block of the column to be the same type (this might go wrong with rounding)
-                    BlockStateHolder existing = session.getBlock(xr, curBlock, zr);
-
-                    // Skip water/lava
-                    if (existing.getBlockType().getMaterial().isMovementBlocker()) {
-                        // Grow -- start from 1 below top replacing airblocks
-                        for (int setY = newBlock - 1, getY = curBlock; setY >= curBlock; --setY, getY--) {
-                            BlockStateHolder get = session.getBlock(xr, getY, zr);
-                            if (get != BlockTypes.AIR.getDefaultState()) tmpBlock = get;
-                            session.setBlock(xr, setY, zr, tmpBlock);
-                            ++blocksChanged;
-                        }
-                        int setData = newHeight & 15;
-                        if (setData != 0) {
-                            existing = PropertyGroup.LEVEL.set(existing, setData - 1);
-                            session.setBlock(xr, newBlock, zr, existing);
-                            ++blocksChanged;
-                        } else {
-                            existing = PropertyGroup.LEVEL.set(existing, 15);
-                            session.setBlock(xr, newBlock, zr, existing);
-                            ++blocksChanged;
-                        }
-                    }
-                } else if (curHeight > newHeight) {
-                    // Fill rest with air
-                    for (int y = newBlock + 1; y <= ((curHeight + 15) >> 4); ++y) {
-                        session.setBlock(xr, y, zr, fillerAir);
-                        ++blocksChanged;
-                    }
-                    // Set the top block of the column to be the same type
-                    // (this could otherwise go wrong with rounding)
-                    int setData = newHeight & 15;
-                    BlockStateHolder existing = session.getBlock(xr, curBlock, zr);
-                    if (setData != 0) {
-                        existing = PropertyGroup.LEVEL.set(existing, setData - 1);
-                        session.setBlock(xr, newBlock, zr, existing);
-                    } else {
-                        existing = PropertyGroup.LEVEL.set(existing, 15);
-                        session.setBlock(xr, newBlock, zr, existing);
-                    }
-                    ++blocksChanged;
-                }
-            }
-        }
-        return blocksChanged;
+        return apply(newData);
     }
 
     /**
      * Apply a raw heightmap to the region
-     *
+     * 
      * @param data the data
      * @return number of blocks affected
      * @throws MaxChangedBlocksException
@@ -256,6 +114,7 @@ public class HeightMap {
 
         BlockVector3 minY = region.getMinimumPoint();
         int originX = minY.getBlockX();
+        int originY = minY.getBlockY();
         int originZ = minY.getBlockZ();
 
         int maxY = region.getMaximumPoint().getBlockY();
@@ -263,14 +122,10 @@ public class HeightMap {
 
         int blocksChanged = 0;
 
-        BlockState tmpBlock = BlockTypes.AIR.getDefaultState();
         // Apply heightmap
-        int index = 0;
         for (int z = 0; z < height; ++z) {
-            int zr = z + originZ;
-            for (int x = 0; x < width; ++x, index++) {
-                if (this.invalid != null && this.invalid[index]) continue;
-
+            for (int x = 0; x < width; ++x) {
+                int index = z * width + x;
                 int curHeight = this.data[index];
 
                 // Clamp newHeight within the selection area
@@ -278,33 +133,44 @@ public class HeightMap {
 
                 // Offset x,z to be 'real' coordinates
                 int xr = x + originX;
+                int zr = z + originZ;
+
+                // We are keeping the topmost blocks so take that in account for the scale
+                double scale = (double) (curHeight - originY) / (double) (newHeight - originY);
 
                 // Depending on growing or shrinking we need to start at the bottom or top
                 if (newHeight > curHeight) {
                     // Set the top block of the column to be the same type (this might go wrong with rounding)
-                    BlockState existing = session.getBlock(xr, curHeight, zr);
+                    BlockState existing = session.getBlock(BlockVector3.at(xr, curHeight, zr));
 
                     // Skip water/lava
-                    if (existing.getBlockType().getMaterial().isMovementBlocker()) {
-                        int y0 = newHeight - 1;
-                        for (int setY = y0, getY = curHeight - 1; setY >= curHeight; setY--, getY--) {
-                            BlockState get = session.getBlock(xr, getY, zr);
-                            if (get != BlockTypes.AIR.getDefaultState()) tmpBlock = get;
-                            session.setBlock(xr, setY, zr, tmpBlock);
+                    if (existing.getBlockType() != BlockTypes.WATER && existing.getBlockType() != BlockTypes.LAVA) {
+                        session.setBlock(BlockVector3.at(xr, newHeight, zr), existing);
+                        ++blocksChanged;
+
+                        // Grow -- start from 1 below top replacing airblocks
+                        for (int y = newHeight - 1 - originY; y >= 0; --y) {
+                            int copyFrom = (int) (y * scale);
+                            session.setBlock(BlockVector3.at(xr, originY + y, zr), session.getBlock(BlockVector3.at(xr, originY + copyFrom, zr)));
                             ++blocksChanged;
                         }
-                        session.setBlock(xr, newHeight, zr, existing);
-                        ++blocksChanged;
                     }
                 } else if (curHeight > newHeight) {
+                    // Shrink -- start from bottom
+                    for (int y = 0; y < newHeight - originY; ++y) {
+                        int copyFrom = (int) (y * scale);
+                        session.setBlock(BlockVector3.at(xr, originY + y, zr), session.getBlock(BlockVector3.at(xr, originY + copyFrom, zr)));
+                        ++blocksChanged;
+                    }
+
                     // Set the top block of the column to be the same type
                     // (this could otherwise go wrong with rounding)
-                    session.setBlock(xr, newHeight, zr, session.getBlock(xr, curHeight, zr));
+                    session.setBlock(BlockVector3.at(xr, newHeight, zr), session.getBlock(BlockVector3.at(xr, curHeight, zr)));
                     ++blocksChanged;
 
                     // Fill rest with air
                     for (int y = newHeight + 1; y <= curHeight; ++y) {
-                        session.setBlock(xr, y, zr, fillerAir);
+                        session.setBlock(BlockVector3.at(xr, y, zr), fillerAir);
                         ++blocksChanged;
                     }
                 }

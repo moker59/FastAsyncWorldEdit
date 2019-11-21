@@ -70,11 +70,6 @@ public class ConvexPolyhedralRegionSelector implements RegionSelector, CUIRegion
         region = new ConvexPolyhedralRegion(world);
     }
 
-    public ConvexPolyhedralRegionSelector(ConvexPolyhedralRegion region) {
-        checkNotNull(region);
-        this.region = region;
-    }
-
     /**
      * Create a new selector.
      *
@@ -206,7 +201,7 @@ public class ConvexPolyhedralRegionSelector implements RegionSelector, CUIRegion
 
         session.describeCUI(player);
 
-        BBC.SELECTOR_POS.send(player, 1, pos, region.getArea());
+        player.print("Started new selection with vertex "+pos+".");
     }
 
     @Override
@@ -217,7 +212,7 @@ public class ConvexPolyhedralRegionSelector implements RegionSelector, CUIRegion
 
         session.describeCUI(player);
 
-        BBC.SELECTOR_POS.send(player, region.getVertices().size(), pos, region.getArea());
+        player.print("Added vertex " + pos + " to the selection.");
     }
 
     @Override
@@ -277,8 +272,4 @@ public class ConvexPolyhedralRegionSelector implements RegionSelector, CUIRegion
         }
     }
 
-    @Override
-    public List<BlockVector3> getVertices() {
-        return new ArrayList<>(region.getVertices());
-    }
 }

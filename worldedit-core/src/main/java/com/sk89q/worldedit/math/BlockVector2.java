@@ -25,7 +25,7 @@ import java.util.Comparator;
 /**
  * An immutable 2-dimensional vector.
  */
-public class BlockVector2 {
+public final class BlockVector2 {
 
     public static final BlockVector2 ZERO = new BlockVector2(0, 0);
     public static final BlockVector2 UNIT_X = new BlockVector2(1, 0);
@@ -54,7 +54,6 @@ public class BlockVector2 {
     }
 
     public static BlockVector2 at(int x, int z) {
-        /* unnecessary
         switch (x) {
             case 0:
                 if (z == 0) {
@@ -67,13 +66,10 @@ public class BlockVector2 {
                 }
                 break;
         }
-        */
         return new BlockVector2(x, z);
     }
 
-    protected int x, z;
-
-    protected BlockVector2(){}
+    private final int x, z;
 
     /**
      * Construct an instance.
@@ -81,29 +77,9 @@ public class BlockVector2 {
      * @param x the X coordinate
      * @param z the Z coordinate
      */
-    protected BlockVector2(int x, int z) {
+    private BlockVector2(int x, int z) {
         this.x = x;
         this.z = z;
-    }
-
-    public MutableBlockVector2 setComponents(int x, int z) {
-        return new MutableBlockVector2(x, z);
-    }
-
-    public MutableBlockVector2 mutX(double x) {
-        return new MutableBlockVector2((int) x, z);
-    }
-
-    public MutableBlockVector2 mutZ(double z) {
-        return new MutableBlockVector2(x, (int) z);
-    }
-
-    public MutableBlockVector2 mutX(int x) {
-        return new MutableBlockVector2(x, z);
-    }
-
-    public MutableBlockVector2 mutZ(int z) {
-        return new MutableBlockVector2(x, z);
     }
 
     /**
@@ -160,35 +136,6 @@ public class BlockVector2 {
      */
     public BlockVector2 withZ(int z) {
         return BlockVector2.at(x, z);
-    }
-
-    public MutableBlockVector2 nextPosition() {
-        int absX = Math.abs(x);
-        int absY = Math.abs(z);
-        if (absX > absY) {
-            if (x > 0) {
-                return setComponents(x, z + 1);
-            } else {
-                return setComponents(x, z - 1);
-            }
-        } else if (absY > absX) {
-            if (z > 0) {
-                return setComponents(x - 1, z);
-            } else {
-                return setComponents(x + 1, z);
-            }
-        } else {
-            if (x == z && x > 0) {
-                return setComponents(x, z + 1);
-            }
-            if (x == absX) {
-                return setComponents(x, z + 1);
-            }
-            if (z == absY) {
-                return setComponents(x, z - 1);
-            }
-            return setComponents(x + 1, z);
-        }
     }
 
     /**
@@ -370,6 +317,7 @@ public class BlockVector2 {
     public BlockVector2 shr(int n) {
         return shr(n, n);
     }
+
     /**
      * Get the length of the vector.
      *
@@ -519,8 +467,8 @@ public class BlockVector2 {
      */
     public BlockVector2 getMinimum(BlockVector2 v2) {
         return new BlockVector2(
-                Math.min(x, v2.x),
-                Math.min(z, v2.z)
+            Math.min(x, v2.x),
+            Math.min(z, v2.z)
         );
     }
 
@@ -532,8 +480,8 @@ public class BlockVector2 {
      */
     public BlockVector2 getMaximum(BlockVector2 v2) {
         return new BlockVector2(
-                Math.max(x, v2.x),
-                Math.max(z, v2.z)
+            Math.max(x, v2.x),
+            Math.max(z, v2.z)
         );
     }
 

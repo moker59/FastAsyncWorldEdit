@@ -56,7 +56,7 @@ import org.enginehub.piston.annotation.param.Arg;
 import org.enginehub.piston.annotation.param.ArgFlag;
 import org.enginehub.piston.annotation.param.Switch;
 
-@CommandContainer(superTypes = {CommandPermissionsConditionGenerator.Registration.class, CommandQueuedConditionGenerator.Registration.class})
+@CommandContainer(superTypes = CommandPermissionsConditionGenerator.Registration.class)
 public class WorldEditCommands {
     private static final DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z");
 
@@ -69,25 +69,12 @@ public class WorldEditCommands {
     @Command(
         name = "version",
         aliases = { "ver" },
-        desc = "Get WorldEdit/FAWE version"
+        desc = "Get WorldEdit version"
     )
-    @SkipQueue
     public void version(Actor actor) {
-        FaweVersion fVer = Fawe.get().getVersion();
-        String fVerStr = fVer == null ? "unknown" : "-" + fVer.build;
-        actor.print("FastAsyncWorldEdit" + fVerStr + " created by Empire92");
+        actor.print("WorldEdit version " + WorldEdit.getVersion());
+        actor.print("https://github.com/EngineHub/worldedit/");
 
-        if (fVer != null) {
-            actor.printDebug("----------- Platforms -----------");
-            FaweVersion version = Fawe.get().getVersion();
-            Date date = new GregorianCalendar(2000 + version.year, version.month - 1, version.day)
-                .getTime();
-            actor.printDebug(" - DATE: " + date.toLocaleString());
-            actor.printDebug(" - COMMIT: " + Integer.toHexString(version.hash));
-            actor.printDebug(" - BUILD: " + version.build);
-            actor.printDebug(" - PLATFORM: " + Settings.IMP.PLATFORM);
-            actor.printDebug("------------------------------------");
-        }
         PlatformManager pm = we.getPlatformManager();
 
         actor.printDebug("----------- Platforms -----------");
@@ -99,57 +86,48 @@ public class WorldEditCommands {
         for (Capability capability : Capability.values()) {
             try {
                 Platform platform = pm.queryCapability(capability);
-                actor.printDebug(String.format("%s: %s", capability.name(),
-                    platform != null ? platform.getPlatformName() : "NONE"));
+                actor.printDebug(String.format("%s: %s", capability.name(), platform != null ? platform.getPlatformName() : "NONE"));
             } catch (NoCapablePlatformException e) {
                 actor.printDebug(String.format("%s: %s", capability.name(), "NONE"));
             }
         }
-        actor.printDebug("");
-        actor.printDebug("Wiki: https://github.com/IntellectualSites/FastAsyncWorldEdit-1.13/wiki");
     }
 
     @Command(
         name = "reload",
-        desc = "Reload configuration and translations"
+        desc = "Reload configuration"
     )
     @CommandPermissions("worldedit.reload")
     public void reload(Actor actor) {
         we.getPlatformManager().queryCapability(Capability.CONFIGURATION).reload();
         we.getEventBus().post(new ConfigurationLoadEvent(we.getPlatformManager().queryCapability(Capability.CONFIGURATION).getConfiguration()));
-        Fawe.get().setupConfigs();
-        actor.print("Configuration and translations reloaded!");
+        actor.print("Configuration reloaded!");
     }
 
     @Command(
         name = "report",
-        aliases = { "debugpaste" },
-        desc = "Writes a report of latest.log, config.yml, message.yml https://athion.net/ISPaster/paste"
+        desc = "Writes a report on WorldEdit"
     )
-    @SkipQueue
-    @CommandPermissions({"worldedit.report", "worldedit.debugpaste"})
-    public void report(Actor actor) throws WorldEditException, IOException {
-        BBC.DOWNLOAD_LINK.send(actor, IncendoPaster.debugPaste());
-    }
+    @CommandPermissions("worldedit.report")
+    public void report(Actor actor,
+                       @Switch(name = 'p', desc = "Pastebins the report")
+                           boolean pastebin) throws WorldEditException {
+        ReportList report = new ReportList("Report");
+        report.add(new SystemInfoReport());
+        report.add(new ConfigReport());
+        String result = report.toString();
 
-    @Command(
-        name = "threads",
-        desc = "Print all thread stacks"
-    )
-    @SkipQueue
-    @CommandPermissions("worldedit.threads")
-    public void threads(Actor actor) throws WorldEditException {
-        Map<Thread, StackTraceElement[]> stacks = Thread.getAllStackTraces();
-        for (Map.Entry<Thread, StackTraceElement[]> entry : stacks.entrySet()) {
-            Thread thread = entry.getKey();
-            actor.printDebug(
-                "--------------------------------------------------------------------------------------------");
-            actor.printDebug(
-                "Thread: " + thread.getName() + " | Id: " + thread.getId() + " | Alive: " + thread
-                    .isAlive());
-            for (StackTraceElement elem : entry.getValue()) {
-                actor.printDebug(elem.toString());
-            }
+        try {
+            File dest = new File(we.getConfiguration().getWorkingDirectory(), "report.txt");
+            Files.write(result, dest, Charset.forName("UTF-8"));
+            actor.print("WorldEdit report written to " + dest.getAbsolutePath());
+        } catch (IOException e) {
+            actor.printError("Failed to write report: " + e.getMessage());
+        }
+
+        if (pastebin) {
+            actor.checkPermission("worldedit.report.pastebin");
+            ActorCallbackPaste.pastebin(we.getSupervisor(), actor, result, "WorldEdit report: %s.report");
         }
     }
 
@@ -185,7 +163,6 @@ public class WorldEditCommands {
         name = "help",
         desc = "Displays help for WorldEdit commands"
     )
-    @SkipQueue
     @CommandPermissions("worldedit.help")
     public void help(Actor actor,
                      @Switch(name = 's', desc = "List sub-commands of the given command, if applicable")

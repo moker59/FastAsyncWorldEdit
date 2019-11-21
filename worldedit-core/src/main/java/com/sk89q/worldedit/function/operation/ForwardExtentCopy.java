@@ -83,8 +83,14 @@ public class ForwardExtentCopy implements Operation {
     private RegionFunction sourceFunction = null;
     private Transform transform = new Identity();
     private Transform currentTransform = null;
+
+    private RegionVisitor lastVisitor;
+    private FlatRegionVisitor lastBiomeVisitor;
+    private EntityVisitor lastEntityVisitor;
+
     private int affectedBlocks;
-    private RegionFunction filterFunction;
+    private int affectedBiomeCols;
+    private int affectedEntities;
 
     /**
      * Create a new copy using the region's lowest minimum point as the
@@ -99,10 +105,6 @@ public class ForwardExtentCopy implements Operation {
     public ForwardExtentCopy(Extent source, Region region, Extent destination, BlockVector3 to) {
         this(source, region, region.getMinimumPoint(), destination, to);
     }
-    private FlatRegionVisitor lastBiomeVisitor;
-    private EntityVisitor lastEntityVisitor;
-    private int affectedBiomeCols;
-    private int affectedEntities;
 
     /**
      * Create a new copy.
@@ -168,10 +170,6 @@ public class ForwardExtentCopy implements Operation {
     public void setSourceMask(Mask sourceMask) {
         checkNotNull(sourceMask);
         this.sourceMask = sourceMask;
-    }
-
-    public void setFilterFunction(RegionFunction filterFunction) {
-        this.filterFunction = filterFunction;
     }
 
     /**
@@ -281,8 +279,9 @@ public class ForwardExtentCopy implements Operation {
 
     @Override
     public Operation resume(RunContext run) throws WorldEditException {
-        if (currentTransform == null) {
-            currentTransform = transform;
+        if (lastVisitor != null) {
+            affectedBlocks += lastVisitor.getAffected();
+            lastVisitor = null;
         }
         if (lastBiomeVisitor != null) {
             affectedBiomeCols += lastBiomeVisitor.getAffected();
@@ -293,127 +292,56 @@ public class ForwardExtentCopy implements Operation {
             lastEntityVisitor = null;
         }
 
-        Extent finalDest = destination;
-        BlockVector3 translation = to.subtract(from);
+        if (repetitions > 0) {
+            repetitions--;
 
-        if (!translation.equals(BlockVector3.ZERO)) {
-            finalDest = new BlockTranslateExtent(finalDest, translation.getBlockX(), translation.getBlockY(), translation.getBlockZ());
-        }
-
-        RegionFunction copy;
-        Operation blockCopy = null;
-        PositionTransformExtent transExt = null;
-        if (!currentTransform.isIdentity()) {
-            if (!(currentTransform instanceof AffineTransform) || ((AffineTransform) currentTransform).isOffAxis()) {
-                transExt = new PositionTransformExtent(source, currentTransform.inverse());
-                transExt.setOrigin(from);
-                copy = new SimpleBlockCopy(transExt, finalDest);
-                if (this.filterFunction != null) {
-                    copy = new IntersectRegionFunction(filterFunction, copy);
-                }
-                if (sourceFunction != null) {
-                    copy = CombinedRegionFunction.combine(copy, sourceFunction);
-                }
-                if (sourceMask != Masks.alwaysTrue()) {
-                    new MaskTraverser(sourceMask).reset(transExt);
-                    copy = new RegionMaskingFilter(sourceMask, copy);
-                }
-                if (copyingBiomes && source.isWorld() || (source instanceof Clipboard && ((Clipboard) source).hasBiomes())) {
-                    copy = CombinedRegionFunction.combine(copy, new BiomeCopy(source, finalDest));
-                }
-                blockCopy = new BackwardsExtentBlockCopy(region, from, transform, copy);
+            if (currentTransform == null) {
+                currentTransform = transform;
             } else {
-                transExt = new PositionTransformExtent(finalDest, currentTransform);
-                transExt.setOrigin(from);
-                finalDest = transExt;
+                currentTransform = currentTransform.combine(transform);
             }
-        }
 
-        if (blockCopy == null) {
-            RegionFunction maskFunc = null;
+            ExtentBlockCopy blockCopy = new ExtentBlockCopy(source, from, destination, to, currentTransform);
+            RegionMaskingFilter filteredFunction = new RegionMaskingFilter(sourceMask,
+                    sourceFunction == null ? blockCopy : new CombinedRegionFunction(blockCopy, sourceFunction));
+            RegionVisitor blockVisitor = new RegionVisitor(region, filteredFunction);
 
-            if (sourceFunction != null) {
-                BlockVector3 disAbs = translation.abs();
-                BlockVector3 size = region.getMaximumPoint().subtract(region.getMinimumPoint()).add(1, 1, 1);
-                boolean overlap = (disAbs.getBlockX() < size.getBlockX() && disAbs.getBlockY() < size.getBlockY() && disAbs.getBlockZ() < size.getBlockZ());
+            lastVisitor = blockVisitor;
 
-                RegionFunction copySrcFunc = sourceFunction;
-                if (overlap && translation.length() != 0) {
-
-                    int x = translation.getBlockX();
-                    int y = translation.getBlockY();
-                    int z = translation.getBlockZ();
-
-                    maskFunc = position -> {
-                        BlockVector3 bv = BlockVector3.at(position.getBlockX() + x, position.getBlockY() + y, position.getBlockZ() + z);
-                        if (region.contains(bv)) {
-                            return sourceFunction.apply(bv);
-                        }
-                        return false;
-                    };
-
-                    copySrcFunc = position -> {
-                        BlockVector3 bv = BlockVector3.at(position.getBlockX() - x, position.getBlockY() - y, position.getBlockZ() - z);
-                        if (!region.contains(bv)) {
-                            return sourceFunction.apply(position);
-                        }
-                        return false;
-                    };
-                }
-                copy = new CombinedBlockCopy(source, finalDest, copySrcFunc);
+            if (!copyingBiomes && !copyingEntities) {
+                return new DelegateOperation(this, blockVisitor);
             }
-            else {
-                copy = new SimpleBlockCopy(source, finalDest);
-            }
-            if (this.filterFunction != null) {
-                copy = new IntersectRegionFunction(filterFunction, copy);
-            }
-            if (sourceMask != Masks.alwaysTrue()) {
-                if (maskFunc != null) copy = new RegionMaskTestFunction(sourceMask, copy, maskFunc);
-                else copy = new RegionMaskingFilter(sourceMask, copy);
-            }
-            if (copyingBiomes && source.isWorld() || (source instanceof Clipboard && ((Clipboard) source).hasBiomes())) {
-                copy = CombinedRegionFunction.combine(copy, new BiomeCopy(source, finalDest));
-            }
-            blockCopy = new RegionVisitor(region, copy);
-        }
 
-        List<? extends Entity> entities;
-        if (copyingEntities) {
-            // filter players since they can't be copied
-            entities = source.getEntities(region)
-                    .stream()
-                    .filter(e -> e.getType() != EntityTypes.PLAYER)
-                    .collect(Collectors.toList());
-        } else {
-            entities = Collections.emptyList();
-        }
+            List<Operation> ops = Lists.newArrayList(blockVisitor);
 
+            if (copyingBiomes && region instanceof FlatRegion) { // double-check here even though we checked before
+                ExtentBiomeCopy biomeCopy = new ExtentBiomeCopy(source, from.toBlockVector2(),
+                        destination, to.toBlockVector2(), currentTransform);
+                Mask2D biomeMask = sourceMask.toMask2D();
+                FlatRegionFunction biomeFunction = biomeMask == null ? biomeCopy
+                        : new FlatRegionMaskingFilter(biomeMask, biomeCopy);
+                FlatRegionVisitor biomeVisitor = new FlatRegionVisitor(((FlatRegion) region), biomeFunction);
+                ops.add(biomeVisitor);
+                lastBiomeVisitor = biomeVisitor;
+            }
 
-        for (int i = 0; i < repetitions; i++) {
-            Operations.completeBlindly(blockCopy);
-
-            if (!entities.isEmpty()) {
+            if (copyingEntities) {
                 ExtentEntityCopy entityCopy = new ExtentEntityCopy(from.toVector3(), destination, to.toVector3(), currentTransform);
                 entityCopy.setRemoving(removingEntities);
-                List<? extends Entity> entities2 = Lists.newArrayList(source.getEntities(region));
-                entities2.removeIf(entity -> {
+                List<? extends Entity> entities = Lists.newArrayList(source.getEntities(region));
+                entities.removeIf(entity -> {
                     EntityProperties properties = entity.getFacet(EntityProperties.class);
                     return properties != null && !properties.isPasteable();
                 });
                 EntityVisitor entityVisitor = new EntityVisitor(entities.iterator(), entityCopy);
-                Operations.completeBlindly(entityVisitor);
+                ops.add(entityVisitor);
+                lastEntityVisitor = entityVisitor;
             }
 
-            if (transExt != null) {
-                currentTransform = currentTransform.combine(transform);
-                transExt.setTransform(currentTransform);
-            }
-
+            return new DelegateOperation(this, new OperationQueue(ops));
+        } else {
+            return null;
         }
-        int affected;
-        affected = region.getArea();
-        return null;
     }
 
     @Override

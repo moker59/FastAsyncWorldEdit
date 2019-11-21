@@ -145,14 +145,22 @@ public class EllipsoidRegionSelector implements RegionSelector, CUIRegion {
 
     @Override
     public void explainPrimarySelection(Actor player, LocalSession session, BlockVector3 pos) {
-        BBC.SELECTOR_CENTER.send(player, region.getCenter(), region.getArea());
+        if (isDefined()) {
+            player.print("Center position set to " + region.getCenter() + " (" + region.getArea() + ").");
+        } else {
+            player.print("Center position set to " + region.getCenter() + ".");
+        }
 
         session.describeCUI(player);
     }
 
     @Override
     public void explainSecondarySelection(Actor player, LocalSession session, BlockVector3 pos) {
-        BBC.SELECTOR_RADIUS.send(player, region.getRadius(), region.getArea());
+        if (isDefined()) {
+            player.print("Radius set to " + region.getRadius() + " (" + region.getArea() + ").");
+        } else {
+            player.print("Radius set to " + region.getRadius() + ".");
+        }
 
         session.describeCUI(player);
     }

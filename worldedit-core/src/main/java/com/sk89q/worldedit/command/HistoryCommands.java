@@ -77,200 +77,51 @@ public class HistoryCommands {
     }
 
     @Command(
-        name = "fawerollback",
-            aliases = {"frb", "/fawerollback", "/rollback"},
-            desc = "Undo a specific edit. " +
-                   " - The time uses s, m, h, d, y.\n" +
-                   " - Import from disk: /frb #import"
-    )
-    @CommandPermissions("worldedit.history.rollback")
-    public void faweRollback(Player player, LocalSession session, @Arg(desc = "String user") String user, @Arg(def = "0", desc = "radius") @Range(from = 0, to=Integer.MAX_VALUE) int radius, @Arg(name = "time", desc = "String", def = "0") String time, @Switch(name = 'r', desc = "TODO") boolean restore) throws WorldEditException {
-        if (!Settings.IMP.HISTORY.USE_DATABASE) {
-            BBC.SETTING_DISABLE.send(player, "history.use-database (Import with /frb #import )");
-            return;
-        }
-        if (user.charAt(0) == '#') {
-            if (user.equals("#import")) {
-                if (!player.hasPermission("fawe.rollback.import")) {
-                    BBC.NO_PERM.send(player, "fawe.rollback.import");
-                    return;
-                }
-                File folder = MainUtil.getFile(Fawe.imp().getDirectory(), Settings.IMP.PATHS.HISTORY);
-                if (folder.exists()) {
-                    for (File worldFolder : Objects.requireNonNull(folder.listFiles())) {
-                        if (worldFolder != null && worldFolder.isDirectory()) {
-                            String worldName = worldFolder.getName();
-                            World world = FaweAPI.getWorld(worldName);
-                            if (world != null) {
-                                for (File userFolder : worldFolder.listFiles()) {
-                                    if (!userFolder.isDirectory()) {
-                                        continue;
-                                    }
-                                    String userUUID = userFolder.getName();
-                                    try {
-                                        UUID uuid = UUID.fromString(userUUID);
-                                        for (File historyFile : userFolder.listFiles()) {
-                                            String name = historyFile.getName();
-                                            if (!name.endsWith(".bd")) {
-                                                continue;
-                                            }
-                                            RollbackOptimizedHistory rollback = new RollbackOptimizedHistory(
-                                                world, uuid,
-                                                Integer.parseInt(
-                                                    name.substring(0, name.length() - 3)));
-                                            DiskStorageHistory.DiskStorageSummary summary = rollback
-                                                .summarize(RegionWrapper.GLOBAL(), false);
-                                            if (summary != null) {
-                                                rollback.setDimensions(
-                                                    BlockVector3.at(summary.minX, 0, summary.minZ),
-                                                    BlockVector3
-                                                        .at(summary.maxX, 255, summary.maxZ));
-                                                rollback.setTime(historyFile.lastModified());
-                                                RollbackDatabase db = DBHandler.IMP
-                                                    .getDatabase(world);
-                                                db.logEdit(rollback);
-                                                player.print("Logging: " + historyFile);
-                                            }
-                                        }
-                                    } catch (IllegalArgumentException e) {
-                                        e.printStackTrace();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    player.print("Done import!");
-                }
-                return;
-            }
-            String toParse = user.substring(1);
-            if (!MathMan.isInteger(toParse)) {
-                BBC.COMMAND_SYNTAX.send(player, "/frb #<index>");
-                return;
-            }
-            int index = Integer.parseInt(toParse);
-            final World world = player.getWorld();
-            UUID uuid = player.getUniqueId();
-            DiskStorageHistory file = new DiskStorageHistory(world, uuid, index);
-            if (file.getBDFile().exists()) {
-                if (restore) file.redo(player);
-                else file.undo(player);
-                BBC.ROLLBACK_ELEMENT.send(player, world.getName() + "/" + user + "-" + index);
-            } else {
-                BBC.TOOL_INSPECT_INFO_FOOTER.send(player, 0);
-            }
-            return;
-        }
-        UUID other = Fawe.imp().getUUID(user);
-        if (other == null) {
-            BBC.PLAYER_NOT_FOUND.send(player, user);
-            return;
-        }
-        if (radius == 0) {
-            BBC.COMMAND_SYNTAX.send(player, "/frb " + user + " <radius> <time>");
-            return;
-        }
-        long timeDiff = MainUtil.timeToSec(time) * 1000;
-        if (timeDiff == 0) {
-            BBC.COMMAND_SYNTAX.send(player, "/frb " + user + " " + radius + " <time>");
-            return;
-        }
-        radius = Math.max(Math.min(500, radius), 0);
-        final World world = player.getWorld();
-        Location origin = player.getLocation();
-        BlockVector3 bot = origin.toBlockPoint().subtract(radius, radius, radius);
-        bot = bot.withY(Math.max(0, bot.getY()));
-        BlockVector3 top = origin.toBlockPoint().add(radius, radius, radius);
-        bot = bot.withY(Math.min(255, top.getY()));
-        RollbackDatabase database = DBHandler.IMP.getDatabase(world);
-        final AtomicInteger count = new AtomicInteger();
-
-        Region[] allowedRegions = player.getCurrentRegions(FaweMaskManager.MaskType.OWNER);
-        if (allowedRegions == null) {
-            player.printError(BBC.NO_REGION.s());
-            return;
-        }
-        // TODO mask the regions bot / top to the bottom and top coord in the allowedRegions
-        // TODO: then mask the edit to the bot / top
-//        if (allowedRegions.length != 1 || !allowedRegions[0].isGlobal()) {
-//            finalQueue = new MaskedIQueueExtent(SetQueue.IMP.getNewQueue(fp.getWorld(), true, false), allowedRegions);
-//        } else {
-//            finalQueue = SetQueue.IMP.getNewQueue(fp.getWorld(), true, false);
-//        }
-        database.getPotentialEdits(other, System.currentTimeMillis() - timeDiff, bot, top, new RunnableVal<DiskStorageHistory>() {
-            @Override
-            public void run(DiskStorageHistory edit) {
-                edit.undo(player, allowedRegions);
-                BBC.ROLLBACK_ELEMENT.send(player, edit.getWorld().getName() + "/" + user + "-" + edit.getIndex());
-                count.incrementAndGet();
-            }
-        }, () -> BBC.TOOL_INSPECT_INFO_FOOTER.send(player, count), true, restore);
-    }
-
-    @Command(
-            name = "fawerestore",
-            aliases = {"/fawerestore", "/frestore"},
-            desc = "Redo a specific edit. " +
-                   " - The time uses s, m, h, d, y.\n" +
-                   " - Import from disk: /frb #import"
-    )
-    @CommandPermissions("worldedit.history.rollback")
-    public void restore(Player player, LocalSession session, @Arg(desc = "String user") String user, @Arg(def = "0", desc = "radius") int radius, @Arg(name = "time", desc = "String", def = "0") String time) throws WorldEditException {
-        faweRollback(player, session, user, radius, time, true);
-    }
-
-    @Command(
-            name = "/undo",
-            aliases = { "/un", "/ud", "undo" },
-            desc = "Undoes the last action (from history)"
+        name = "undo",
+        aliases = { "/undo" },
+        desc = "Undoes the last action (from history)"
     )
     @CommandPermissions({"worldedit.history.undo", "worldedit.history.undo.self"})
     public void undo(Player player, LocalSession session,
-                     @Confirm(Confirm.Processor.LIMIT) @Arg(desc = "Number of undoes to perform", def = "1")
-                             int times,
+                     @Arg(desc = "Number of undoes to perform", def = "1")
+                         int times,
                      @Arg(name = "player", desc = "Undo this player's operations", def = "")
-                             String playerName) throws WorldEditException {
+                         String playerName) throws WorldEditException {
         times = Math.max(1, times);
-        LocalSession undoSession;
-        if (session.hasFastMode()) {
-            player.print(BBC.COMMAND_UNDO_DISABLED.s());
-            return;
-        }
-        if (playerName != null && !playerName.isEmpty()) {
+        LocalSession undoSession = session;
+        if (playerName != null) {
             player.checkPermission("worldedit.history.undo.other");
             undoSession = worldEdit.getSessionManager().findByName(playerName);
             if (undoSession == null) {
-                BBC.COMMAND_HISTORY_OTHER_ERROR.send(player, playerName);
+                player.printError("Unable to find session for " + playerName);
                 return;
             }
+        }
+        int timesUndone = 0;
+        for (int i = 0; i < times; ++i) {
+            EditSession undone = undoSession.undo(undoSession.getBlockBag(player), player);
+            if (undone != null) {
+                timesUndone++;
+                worldEdit.flushBlockBag(player, undone);
+            } else {
+                break;
+            }
+        }
+        if (timesUndone > 0) {
+            player.print("Undid " + timesUndone + " available edits.");
         } else {
-            undoSession = session;
-        }
-        int finalTimes = times;
-        EditSession undone = null;
-        int i = 0;
-        for (; i < finalTimes; ++i) {
-            undone = undoSession.undo(undoSession.getBlockBag(player), player);
-            if (undone == null) break;
-            worldEdit.flushBlockBag(player, undone);
-        }
-        if (undone == null) i--;
-        if (i > 0) {
-            BBC.COMMAND_UNDO_SUCCESS.send(player, i == 1 ? "" : " x" + i);
-        }
-        if (undone == null) {
-            player.printError(BBC.COMMAND_UNDO_ERROR.s());
+            player.printError("Nothing left to undo.");
         }
     }
 
     @Command(
-        name = "/redo",
-        aliases = { "/do", "/rd", "redo" },
+        name = "redo",
+        aliases = { "/redo" },
         desc = "Redoes the last action (from history)"
     )
     @CommandPermissions({"worldedit.history.redo", "worldedit.history.redo.self"})
     public void redo(Player player, LocalSession session,
-                     @Confirm(Confirm.Processor.LIMIT) @Arg(desc = "Number of redoes to perform", def = "1")
+                     @Arg(desc = "Number of redoes to perform", def = "1")
                          int times,
                      @Arg(name = "player", desc = "Redo this player's operations", def = "")
                          String playerName) throws WorldEditException {
@@ -280,7 +131,7 @@ public class HistoryCommands {
             player.checkPermission("worldedit.history.redo.other");
             redoSession = worldEdit.getSessionManager().findByName(playerName);
             if (redoSession == null) {
-                BBC.COMMAND_HISTORY_OTHER_ERROR.send(player, playerName);
+                player.printError("Unable to find session for " + playerName);
                 return;
             }
         }
@@ -295,9 +146,9 @@ public class HistoryCommands {
             }
         }
         if (timesRedone > 0) {
-            BBC.COMMAND_REDO_SUCCESS.send(player, timesRedone == 1 ? "" : " x" + timesRedone);
+            player.print("Redid " + timesRedone + " available edits.");
         } else {
-            player.printError(BBC.COMMAND_REDO_ERROR.s());
+            player.printError("Nothing left to redo.");
         }
     }
 

@@ -48,262 +48,106 @@ import java.util.stream.Stream;
  * An immutable class that represents the state a block can be in.
  */
 @SuppressWarnings("unchecked")
-public class BlockState implements BlockStateHolder<BlockState>, FawePattern {
-    private final int internalId;
-    private final int ordinal;
-    private final char ordinalChar;
+public class BlockState implements BlockStateHolder<BlockState> {
+
     private final BlockType blockType;
-    private BlockMaterial material;
-    private final BaseBlock emptyBaseBlock;
-    private CompoundInput compoundInput = CompoundInput.NULL;
+    private final Map<Property<?>, Object> values;
 
-    protected BlockState(BlockType blockType, int internalId, int ordinal) {
+    private BaseBlock emptyBaseBlock;
+
+    // Neighbouring state table.
+    private Table<Property<?>, Object, BlockState> states;
+
+    BlockState(BlockType blockType) {
         this.blockType = blockType;
-        this.internalId = internalId;
-        this.ordinal = ordinal;
-        this.ordinalChar = (char) ordinal;
-        this.emptyBaseBlock = new ImmutableBaseBlock(this);
+        this.values = new LinkedHashMap<>();
+        this.emptyBaseBlock = new BaseBlock(this);
     }
 
-    /**
-     * Returns a temporary BlockState for a given internal id
-     * @param combinedId
-     * @deprecated magic number
-     * @return BlockState
-     */
+    static Map<Map<Property<?>, Object>, BlockState> generateStateMap(BlockType blockType) {
+        Map<Map<Property<?>, Object>, BlockState> stateMap = new LinkedHashMap<>();
+        List<? extends Property<?>> properties = blockType.getProperties();
 
-    @Deprecated
-    public static BlockState getFromInternalId(int combinedId) throws InputParseException {
-        return BlockTypes.getFromStateId(combinedId).withStateId(combinedId);
-    }
-
-    @Deprecated
-    public static BlockState getFromOrdinal(int ordinal) {
-        return BlockTypesCache.states[ordinal];
-    }
-
-    /**
-     * Returns a temporary BlockState for a given type and string
-     * @param state String e.g., minecraft:water[level=4]
-     * @return BlockState
-     */
-    public static BlockState get(String state) throws InputParseException {
-        return get(null, state);
-    }
-
-    /**
-     * Returns a temporary BlockState for a given type and string
-     *  - It's faster if a BlockType is provided compared to parsing the string
-     * @param type BlockType e.g., BlockTypes.STONE (or null)
-     * @param state String e.g., minecraft:water[level=4]
-     * @return BlockState
-     */
-    public static BlockState get(@Nullable BlockType type, String state) throws InputParseException {
-        return get(type, state, null);
-    }
-
-    /**
-     * Returns a temporary BlockState for a given type and string
-     *  - It's faster if a BlockType is provided compared to parsing the string
-     * @param type BlockType e.g., BlockTypes.STONE (or null)
-     * @param state String e.g., minecraft:water[level=4]
-     * @return BlockState
-     */
-    public static BlockState get(@Nullable BlockType type, String state, BlockState defaultState) throws InputParseException {
-        int propStrStart = state.indexOf('[');
-        if (type == null) {
-            CharSequence key;
-            if (propStrStart == -1) {
-                key = state;
-            } else {
-                MutableCharSequence charSequence = MutableCharSequence.getTemporal();
-                charSequence.setString(state);
-                charSequence.setSubstring(0, propStrStart);
-                key = charSequence;
+        if (!properties.isEmpty()) {
+            List<List<Object>> separatedValues = Lists.newArrayList();
+            for (Property<?> prop : properties) {
+                List<Object> vals = Lists.newArrayList();
+                vals.addAll(prop.getValues());
+                separatedValues.add(vals);
             }
-            type = BlockTypes.get(key);
-            if (type == null) {
-                String input = key.toString();
-                throw new SuggestInputParseException("Does not match a valid block type: " + input, input, () -> Stream.of(BlockTypesCache.values)
-                        .filter(b -> StringMan.blockStateMatches(input, b.getId()))
-                        .map(BlockType::getId)
-                        .sorted(StringMan.blockStateComparator(input))
-                        .collect(Collectors.toList())
-                );
+            List<List<Object>> valueLists = Lists.cartesianProduct(separatedValues);
+            for (List<Object> valueList : valueLists) {
+                Map<Property<?>, Object> valueMap = Maps.newTreeMap(Comparator.comparing(Property::getName));
+                BlockState stateMaker = new BlockState(blockType);
+                for (int i = 0; i < valueList.size(); i++) {
+                    Property<?> property = properties.get(i);
+                    Object value = valueList.get(i);
+                    valueMap.put(property, value);
+                    stateMaker.setState(property, value);
+                }
+                stateMap.put(valueMap, stateMaker);
             }
         }
-        if (propStrStart == -1) {
-            return type.getDefaultState();
+
+        if (stateMap.isEmpty()) {
+            // No properties.
+            stateMap.put(new LinkedHashMap<>(), new BlockState(blockType));
         }
 
-        List<? extends Property> propList = type.getProperties();
-
-        if (state.charAt(state.length() - 1) != ']') state = state + "]";
-        MutableCharSequence charSequence = MutableCharSequence.getTemporal();
-        charSequence.setString(state);
-
-        if (propList.size() == 1) {
-            AbstractProperty property = (AbstractProperty) propList.get(0);
-            String name = property.getName();
-
-            charSequence.setSubstring(propStrStart + name.length() + 2, state.length() - 1);
-            int index = charSequence.length() <= 0 ? -1 : property.getIndexFor(charSequence);
-            if (index != -1) {
-                return type.withPropertyId(index);
-            }
+        for (BlockState state : stateMap.values()) {
+            state.populate(stateMap);
         }
-        int stateId;
-        if (defaultState != null) {
-            stateId = defaultState.getInternalId();
-        } else {
-            stateId = type.getInternalId();
-        }
-        int length = state.length();
-        AbstractProperty property = null;
 
-        int last = propStrStart + 1;
-        for (int i = last; i < length; i++) {
-            char c = state.charAt(i);
-            switch (c) {
-                case ']':
-                case ',': {
-                    charSequence.setSubstring(last, i);
-                    if (property != null) {
-                        int index = property.getIndexFor(charSequence);
-                        if (index == -1) {
-                            throw SuggestInputParseException.of(charSequence.toString(), property.getValues());
-                        }
-                        stateId = property.modifyIndex(stateId, index);
+        return stateMap;
+    }
+
+    private void populate(Map<Map<Property<?>, Object>, BlockState> stateMap) {
+        final Table<Property<?>, Object, BlockState> states = HashBasedTable.create();
+
+        for (final Map.Entry<Property<?>, Object> entry : this.values.entrySet()) {
+            final Property<Object> property = (Property<Object>) entry.getKey();
+
+            property.getValues().forEach(value -> {
+                if (value != entry.getValue()) {
+                    BlockState modifiedState = stateMap.get(this.withValue(property, value));
+                    if (modifiedState != null) {
+                        states.put(property, value, modifiedState);
                     } else {
-                        // suggest
-                        PropertyKey key = PropertyKey.get(charSequence);
-                        if (key == null || !type.hasProperty(key)) {
-                            // Suggest property
-                            String input = charSequence.toString();
-                            BlockType finalType = type;
-                            throw new SuggestInputParseException("Invalid property " + key + ":" + input + " for type " + type, input, () ->
-                                finalType.getProperties().stream()
-                                .map(Property::getName)
-                                .filter(p -> StringMan.blockStateMatches(input, p))
-                                .sorted(StringMan.blockStateComparator(input))
-                                .collect(Collectors.toList()));
-                        } else {
-                            throw new SuggestInputParseException("No operator for " + state, "", () -> Collections.singletonList("="));
-                        }
+                        System.out.println(stateMap);
+                        WorldEdit.logger.warn("Found a null state at " + this.withValue(property, value));
                     }
-                    property = null;
-                    last = i + 1;
-                    break;
                 }
-                case '=': {
-                    charSequence.setSubstring(last, i);
-                    property = (AbstractProperty) type.getPropertyMap().get(charSequence);
-                    last = i + 1;
-                    break;
-                }
-                default:
-                    continue;
-            }
+            });
         }
-        return type.withPropertyId(stateId >> BlockTypesCache.BIT_OFFSET);
+
+        this.states = states.isEmpty() ? states : ArrayTable.create(states);
     }
 
-    @Override
-    public BlockState withPropertyId(int propertyId) {
-        return getBlockType().withPropertyId(propertyId);
+    private <V> Map<Property<?>, Object> withValue(final Property<V> property, final V value) {
+        final Map<Property<?>, Object> values = Maps.newHashMap(this.values);
+        values.put(property, value);
+        return values;
     }
 
     @Override
     public BlockType getBlockType() {
         return this.blockType;
     }
-    @Override
-    public boolean apply(Extent extent, BlockVector3 get, BlockVector3 set) throws WorldEditException {
-        return set.setBlock(extent, this);
-    }
-
-    @Override
-    public BaseBlock apply(BlockVector3 position) {
-        return this.toBaseBlock();
-    }
-
-    @Override
-    public void applyTileEntity(OutputExtent output, int x, int y, int z) {
-
-    }
-
-    /**
-     * The internal id with no type information
-     * @return
-     */
-    @Deprecated
-    @Override
-    public final int getInternalPropertiesId() {
-        return this.getInternalId() >> BlockTypesCache.BIT_OFFSET;
-    }
-
-    @Deprecated
-    @Override
-    public final int getInternalBlockTypeId() {
-        return this.getInternalId() & BlockTypesCache.BIT_MASK;
-    }
 
     @Override
     public <V> BlockState with(final Property<V> property, final V value) {
-        try {
-            BlockType type = getBlockType();
-            int newState = ((AbstractProperty) property).modify(this.getInternalId(), value);
-            return newState != this.getInternalId() ? type.withStateId(newState) : this;
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Property not found: " + property);
-        }
+        BlockState result = states.get(property, value);
+        return result == null ? this : result;
     }
 
     @Override
     public <V> V getState(final Property<V> property) {
-        try {
-            AbstractProperty ap = (AbstractProperty) property;
-            return (V) ap.getValue(this.getInternalId());
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Property not found: " + property);
-        }
-    }
-
-    @Override
-    public <V> BlockState with(final PropertyKey property, final V value) {
-        try {
-            BlockType type = getBlockType();
-            int newState = ((AbstractProperty) type.getProperty(property)).modify(this.getInternalId(), value);
-            return newState != this.getInternalId() ? type.withStateId(newState) : this;
-        } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Property not found: " + property);
-        }
-    }
-
-    public <V> BlockState withProperties(final BlockState other) {
-        BlockType ot = other.getBlockType();
-        if (ot == blockType) {
-            return other;
-        }
-        if (ot.getProperties().isEmpty() || blockType.getProperties().isEmpty()) {
-            return this;
-        }
-        BlockState newState = this;
-        for (Property<?> prop: ot.getProperties()) {
-            PropertyKey key = prop.getKey();
-            if (blockType.hasProperty(key)) {
-                newState = newState.with(key, other.getState(key));
-            }
-        }
-        return this;
+        return (V) this.values.get(property);
     }
 
     @Override
     public Map<Property<?>, Object> getStates() {
-        BlockType type = this.getBlockType();
-        // Lazily initialize the map
-        Map<? extends Property, Object> map = Maps.asMap(type.getPropertiesSet(), (Function<Property, Object>) this::getState);
-        return Collections.unmodifiableMap((Map<Property<?>, Object>) map);
+        return Collections.unmodifiableMap(this.values);
     }
 
     @Override
@@ -315,10 +159,32 @@ public class BlockState implements BlockStateHolder<BlockState>, FawePattern {
             // Added a reference equality check for speediness
             return true;
         }
-        if (o.getClass() == BlockState.class) {
-            return o.getOrdinal() == this.getOrdinal();
+        if (!getBlockType().equals(o.getBlockType())) {
+            return false;
         }
-        return o.equalsFuzzy(this);
+
+        Set<Property<?>> differingProperties = new HashSet<>();
+        for (Object state : o.getStates().keySet()) {
+            if (getState((Property<?>) state) == null) {
+                differingProperties.add((Property<?>) state);
+            }
+        }
+        for (Property<?> property : getStates().keySet()) {
+            if (o.getState(property) == null) {
+                differingProperties.add(property);
+            }
+        }
+
+        for (Property<?> property : getStates().keySet()) {
+            if (differingProperties.contains(property)) {
+                continue;
+            }
+            if (!Objects.equals(getState(property), o.getState(property))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override
@@ -331,12 +197,6 @@ public class BlockState implements BlockStateHolder<BlockState>, FawePattern {
         return this.emptyBaseBlock;
     }
 
-    @Deprecated
-    @Override
-    public <V> V getState(PropertyKey key) {
-        return getState(getBlockType().getProperty(key));
-    }
-
     @Override
     public BaseBlock toBaseBlock(CompoundTag compoundTag) {
         if (compoundTag == null) {
@@ -345,33 +205,18 @@ public class BlockState implements BlockStateHolder<BlockState>, FawePattern {
         return new BaseBlock(this, compoundTag);
     }
 
-    @Override
-    public int getInternalId() {
-        return internalId;
-    }
-
-    @Override
-    public BlockMaterial getMaterial() {
-        if (this.material == null) {
-            if (blockType == BlockTypes.__RESERVED__) {
-                return this.material = blockType.getMaterial();
-            }
-            this.material = WorldEdit.getInstance().getPlatformManager().queryCapability(Capability.GAME_HOOKS).getRegistries().getBlockRegistry().getMaterial(this);
-            if (this.material.hasContainer()) {
-                this.compoundInput = CompoundInput.CONTAINER;
-            }
-        }
-        return material;
-    }
-
-    @Override
-    public final int getOrdinal() {
-        return this.ordinal;
-    }
-
-    @Override
-    public final char getOrdinalChar() {
-        return this.ordinalChar;
+    /**
+     * Internal method used for creating the initial BlockState.
+     *
+     * Sets a value. DO NOT USE THIS.
+     *
+     * @param property The state
+     * @param value The value
+     * @return The blockstate, for chaining
+     */
+    BlockState setState(final Property<?> property, final Object value) {
+        this.values.put(property, value);
+        return this;
     }
 
     @Override
@@ -388,21 +233,13 @@ public class BlockState implements BlockStateHolder<BlockState>, FawePattern {
         return equalsFuzzy((BlockState) obj);
     }
 
+    private Integer hashCodeCache = null;
+
     @Override
     public int hashCode() {
-        return getOrdinal();
-    }
-
-    public boolean isAir() {
-        try {
-            return material.isAir();
-        } catch (NullPointerException ignore) {
-            return getMaterial().isAir();
+        if (hashCodeCache == null) {
+            hashCodeCache = Objects.hash(blockType, values);
         }
-    }
-
-    @Override
-    public BaseBlock toBaseBlock(ITileInput input, int x, int y, int z) {
-        return compoundInput.get(this, input, x, y, z);
+        return hashCodeCache;
     }
 }

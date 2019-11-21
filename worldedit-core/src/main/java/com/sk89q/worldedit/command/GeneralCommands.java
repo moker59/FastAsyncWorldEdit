@@ -194,7 +194,7 @@ public class GeneralCommands {
         } else {
             session.setUseServerCUI(true);
             session.updateServerCUI(player);
-            player.print("Server CUI enabled. This only supports cuboid regions, with a maximum size of 32×32×32.");
+            player.print("Server CUI enabled. This only supports cuboid regions, with a maximum size of 32x32x32.");
         }
     }
 
@@ -261,9 +261,9 @@ public class GeneralCommands {
     )
     public void togglePlace(Player player, LocalSession session) {
         if (session.togglePlacementPosition()) {
-            player.print(BBC.PLACE_ENABLED.s());
+            player.print("Now placing at pos #1.");
         } else {
-            player.print(BBC.PLACE_DISABLED.s());
+            player.print("Now placing at the block you stand in.");
         }
     }
 
@@ -281,7 +281,7 @@ public class GeneralCommands {
                            @ArgFlag(name = 'p', desc = "Page of results to return", def = "1")
                                int page,
                            @Arg(desc = "Search query", variable = true)
-                               List<String> query) throws Exception {
+                               List<String> query) {
         String search = String.join(" ", query);
         if (search.length() <= 2) {
             actor.printError("Enter a longer search string (len > 2).");
@@ -292,7 +292,8 @@ public class GeneralCommands {
             return;
         }
 
-        actor.print(new ItemSearcher(search, blocksOnly, itemsOnly, page).call());
+        WorldEditAsyncCommandBuilder.createAndSendMessage(actor, new ItemSearcher(search, blocksOnly, itemsOnly, page),
+                "(Please wait... searching items.)");
     }
 
     private static class ItemSearcher implements Callable<Component> {
@@ -332,111 +333,6 @@ public class GeneralCommands {
             }
             List<String> list = new ArrayList<>(results.values());
             return PaginationBox.fromStrings("Search results for '" + search + "'", command, list).create(page);
-        }
-    }
-
-    @Command(
-            name = "/gtexture",
-            aliases = {"gtexture"},
-            descFooter = "The global destination mask applies to all edits you do and masks based on the destination blocks (i.e., the blocks in the world).",
-            desc = "Set the global mask"
-    )
-    @CommandPermissions("worldedit.global-texture")
-    public void gtexture(Player player, World worldArg, LocalSession session, EditSession editSession, @Arg(name = "context", desc = "InjectedValueAccess", def = "") List<String> arguments) throws WorldEditException, FileNotFoundException {
-        // gtexture <randomize> <min=0> <max=100>
-        // TODO NOT IMPLEMENTED convert this to an ArgumentConverter
-        if (arguments.isEmpty()) {
-            session.setTextureUtil(null);
-            player.print(BBC.TEXTURE_DISABLED.s());
-        } else {
-            String arg = arguments.get(0);
-            String argLower = arg.toLowerCase(Locale.ROOT);
-
-            TextureUtil util = Fawe.get().getTextureUtil();
-            int randomIndex = 1;
-            boolean checkRandomization = true;
-            if (arguments.size() >= 2 && MathMan.isInteger(arguments.get(0)) && MathMan.isInteger(arguments.get(1))) {
-                // complexity
-                int min = Integer.parseInt(arguments.get(0));
-                int max = Integer.parseInt(arguments.get(1));
-                if (min < 0 || max > 100) throw new InputParseException("Complexity must be in the range 0-100");
-                if (min != 0 || max != 100) util = new CleanTextureUtil(util, min, max);
-
-                randomIndex = 2;
-            } else if (arguments.size() == 1 && argLower.equals("true") || argLower.equals("false")) {
-                if (argLower.equals("true")) util = new RandomTextureUtil(util);
-                checkRandomization = false;
-            } else {
-                if (argLower.equals("#copy") || argLower.equals("#clipboard")) {
-                    Clipboard clipboard = session.getClipboard().getClipboard();
-                    util = TextureUtil.fromClipboard(clipboard);
-                } else if (argLower.equals("*") || argLower.equals("true")) {
-                    util = Fawe.get().getTextureUtil();
-                } else {
-                    ParserContext parserContext = new ParserContext();
-                    parserContext.setActor(player);
-                    parserContext.setWorld(worldArg);
-                    parserContext.setSession(session);
-                    parserContext.setExtent(editSession);
-                    Mask mask = worldEdit.getMaskFactory().parseFromInput(arg, parserContext);
-                    util = TextureUtil.fromMask(mask);
-                }
-            }
-            if (checkRandomization) {
-                if (arguments.size() > randomIndex) {
-                    boolean random = Boolean.parseBoolean(arguments.get(randomIndex));
-                    if (random) util = new RandomTextureUtil(util);
-                }
-            }
-            if (!(util instanceof CachedTextureUtil)) util = new CachedTextureUtil(util);
-            session.setTextureUtil(util);
-            BBC.TEXTURE_SET.send(player, StringMan.join(arguments, " "));
-        }
-    }
-
-    @Command(
-            name = "/gsmask",
-            aliases = {"gsmask", "globalsourcemask", "/globalsourcemask"},
-            desc = "Set the global source mask",
-            descFooter = "The global source mask applies to all edits you do and masks based on the source blocks (e.g., the blocks in your clipboard)"
-    )
-    @CommandPermissions({"worldedit.global-mask", "worldedit.mask.global"})
-    public void gsmask(Player player, LocalSession session, EditSession editSession, @Arg(desc = "The mask to set", def = "") Mask maskOpt) throws WorldEditException {
-        session.setSourceMask(maskOpt);
-        if (maskOpt == null) {
-            player.print(BBC.SOURCE_MASK_DISABLED.s());
-        } else {
-            player.print(BBC.SOURCE_MASK.s());
-        }
-    }
-
-
-    @Command(
-            name = "/gtransform",
-            aliases = {"gtransform"},
-            desc = "Set the global transform"
-    )
-    @CommandPermissions({"worldedit.global-transform", "worldedit.transform.global"})
-    public void gtransform(Player player, EditSession editSession, LocalSession session, ResettableExtent transform) throws WorldEditException {
-        session.setTransform(transform);
-        if (transform == null) {
-            player.print(BBC.TRANSFORM_DISABLED.s());
-        } else {
-            player.print(BBC.TRANSFORM.s());
-        }
-    }
-
-    @Command(
-            name = "/tips",
-            aliases = {"tips"},
-            desc = "Toggle FAWE tips"
-    )
-    @CommandPermissions("fawe.tips")
-    public void tips(Player player, LocalSession session) throws WorldEditException {
-        if (player.togglePermission("fawe.tips")) {
-            player.print(BBC.WORLDEDIT_TOGGLE_TIPS_ON.s());
-        } else {
-            player.print(BBC.WORLDEDIT_TOGGLE_TIPS_OFF.s());
         }
     }
 }

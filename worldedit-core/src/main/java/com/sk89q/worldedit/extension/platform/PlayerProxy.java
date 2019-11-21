@@ -43,20 +43,14 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-public class PlayerProxy extends AbstractPlayerActor {
+class PlayerProxy extends AbstractPlayerActor {
 
     private final Player basePlayer;
     private final Actor permActor;
     private final Actor cuiActor;
     private final World world;
-    private Vector3 offset = Vector3.ZERO;
 
-    public PlayerProxy(Player player) {
-        this(player, player, player, player.getWorld());
-    }
-
-    public PlayerProxy(Player basePlayer, Actor permActor, Actor cuiActor, World world) {
-        super(basePlayer.getRawMeta());
+    PlayerProxy(Player basePlayer, Actor permActor, Actor cuiActor, World world) {
         checkNotNull(basePlayer);
         checkNotNull(permActor);
         checkNotNull(cuiActor);
@@ -65,22 +59,6 @@ public class PlayerProxy extends AbstractPlayerActor {
         this.permActor = permActor;
         this.cuiActor = cuiActor;
         this.world = world;
-    }
-
-    public static Player unwrap(Player player) {
-        if (player instanceof PlayerProxy) {
-            return unwrap(((PlayerProxy) player).getBasePlayer());
-        }
-        return player;
-    }
-
-    public void setOffset(Vector3 position) {
-        this.offset = position;
-    }
-
-    @Override
-    public BaseBlock getBlockInHand(HandSide handSide) throws WorldEditException {
-        return basePlayer.getBlockInHand(handSide);
     }
 
     @Override
@@ -120,8 +98,7 @@ public class PlayerProxy extends AbstractPlayerActor {
 
     @Override
     public Location getLocation() {
-        Location loc = this.basePlayer.getLocation();
-        return new Location(loc.getExtent(), loc.add(offset), loc.getDirection());
+        return basePlayer.getLocation();
     }
 
     @Override
@@ -136,7 +113,7 @@ public class PlayerProxy extends AbstractPlayerActor {
 
     @Override
     public World getWorld() {
-        return world == null ? basePlayer.getWorld() : world;
+        return world;
     }
 
     @Override
@@ -174,14 +151,6 @@ public class PlayerProxy extends AbstractPlayerActor {
         return permActor.hasPermission(perm);
     }
 
-    @Override public boolean togglePermission(String permission) {
-        return permActor.hasPermission(permission);
-    }
-
-    @Override public void setPermission(String permission, boolean value) {
-        permActor.setPermission(permission, value);
-    }
-
     @Override
     public void dispatchCUIEvent(CUIEvent event) {
         cuiActor.dispatchCUIEvent(event);
@@ -211,15 +180,6 @@ public class PlayerProxy extends AbstractPlayerActor {
     @Override
     public <B extends BlockStateHolder<B>> void sendFakeBlock(BlockVector3 pos, B block) {
         basePlayer.sendFakeBlock(pos, block);
-    }
-
-    @Override
-    public void sendTitle(String title, String sub) {
-        basePlayer.sendTitle(title, sub);
-    }
-
-    public Player getBasePlayer() {
-        return basePlayer;
     }
 
     @Override

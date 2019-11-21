@@ -50,11 +50,6 @@ public class EllipsoidRegion extends AbstractRegion {
      */
     private Vector3 radius;
 
-    private Vector3 radiusSqr;
-    private Vector3 inverseRadius;
-    private int radiusLengthSqr;
-    private boolean sphere;
-
     /**
      * Construct a new instance of this ellipsoid region.
      *
@@ -135,14 +130,14 @@ public class EllipsoidRegion extends AbstractRegion {
     @Override
     public void expand(BlockVector3... changes) throws RegionOperationException {
         center = center.add(calculateDiff(changes));
-        setRadius(radius.add(calculateChanges(changes)));
+        radius = radius.add(calculateChanges(changes));
     }
 
     @Override
     public void contract(BlockVector3... changes) throws RegionOperationException {
         center = center.subtract(calculateDiff(changes));
         Vector3 newRadius = radius.subtract(calculateChanges(changes));
-        setRadius(Vector3.at(1.5, 1.5, 1.5).getMaximum(newRadius));
+        radius = Vector3.at(1.5, 1.5, 1.5).getMaximum(newRadius);
     }
 
     @Override
@@ -184,16 +179,7 @@ public class EllipsoidRegion extends AbstractRegion {
      * @param radius the radius
      */
     public void setRadius(Vector3 radius) {
-        this.radius = radius;
-        radiusSqr = radius.multiply(radius);
-        radiusLengthSqr = (int) radiusSqr.getX();
-        this.sphere = radius.getY() == radius.getX() && radius.getX() == radius.getZ();
-        if (radius.getY() == radius.getX() && radius.getX() == radius.getZ()) {
-            this.sphere = true;
-        } else {
-            this.sphere = false;
-        }
-        inverseRadius = Vector3.ONE.divide(radius);
+        this.radius = radius.add(0.5, 0.5, 0.5);
     }
 
     @Override
@@ -220,63 +206,9 @@ public class EllipsoidRegion extends AbstractRegion {
         return chunks;
     }
 
-   @Override
-   public boolean contains(int x, int y, int z) {
-       int cx = x - center.getBlockX();
-       int cx2 = cx * cx;
-       if (cx2 > radiusSqr.getBlockX()) {
-           return false;
-       }
-       int cz = z - center.getBlockZ();
-       int cz2 = cz * cz;
-       if (cz2 > radiusSqr.getBlockZ()) {
-           return false;
-       }
-       int cy = y - center.getBlockY();
-       int cy2 = cy * cy;
-       if (radiusSqr.getBlockY() < 255 && cy2 > radiusSqr.getBlockY()) {
-           return false;
-       }
-       if (sphere) {
-           return cx2 + cy2 + cz2 <= radiusLengthSqr;
-       }
-       double cxd = cx2 * inverseRadius.getX();
-       double cyd = cy2 * inverseRadius.getY();
-       double czd = cz2 * inverseRadius.getZ();
-       return cxd + cyd + czd <= 1;
-    }
-
-    /*
-    /* Slow and unnecessary
     @Override
     public boolean contains(BlockVector3 position) {
         return position.subtract(center).toVector3().divide(radius).lengthSq() <= 1;
-    }
-    */
-
-    @Override
-    public boolean contains(BlockVector3 position) {
-        return contains(position.getX(), position.getY(), position.getZ());
-    }
-
-    @Override
-    public boolean contains(int x, int z) {
-        int cx = x - center.getBlockX();
-        int cx2 = cx * cx;
-        if (cx2 > radiusSqr.getBlockX()) {
-            return false;
-        }
-        int cz = z - center.getBlockZ();
-        int cz2 = cz * cz;
-        if (cz2 > radiusSqr.getBlockZ()) {
-            return false;
-        }
-        if (sphere) {
-            return cx2 + cz2 <= radiusLengthSqr;
-        }
-        double cxd = cx2 * inverseRadius.getX();
-        double czd = cz2 * inverseRadius.getZ();
-        return cxd + czd <= 1;
     }
 
     /**
@@ -299,113 +231,4 @@ public class EllipsoidRegion extends AbstractRegion {
         return (EllipsoidRegion) super.clone();
     }
 
-    private void filterSpherePartial(int y1, int y2, int bx, int bz, Filter filter, ChunkFilterBlock block, IChunkGet get, IChunkSet set) {
-        int sectionStart = y1 >> 4;
-        int sectionEnd = y2 >> 4;
-
-    }
-
-    private void filterSpherePartial(int layer, int y1, int y2, int bx, int bz, Filter filter, ChunkFilterBlock block, IChunkGet get, IChunkSet set) {
-        int cx = center.getBlockX();
-        int cy = center.getBlockY();
-        int cz = center.getBlockZ();
-
-        block.init(get, set, layer);
-
-        int by = layer << 4;
-        int diffY;
-        for (int y = y1, yy = by + y1; y <= y2; y++, yy++) {
-            diffY = cy - yy;
-            int remainderY = radiusLengthSqr - (diffY * diffY);
-            if (remainderY >= 0) {
-                for (int z = 0; z < 16; z++) {
-                    int zz = z + bz;
-                    int diffZ = cz - zz;
-                    int remainderZ = remainderY - (diffZ * diffZ);
-                    if (remainderZ >= 0) {
-                        int diffX = MathMan.usqrt(remainderZ);
-                        int minX = Math.max(0, cx - diffX - bx);
-                        int maxX = Math.min(15, cx + diffX - bx);
-                        if (minX != maxX) {
-                            block.filter(filter, minX, y, z, maxX, y, z);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    @Override
-    public void filter(IChunk chunk, Filter filter, ChunkFilterBlock block, IChunkGet get, IChunkSet set, boolean full) {
-        // Check bounds
-        // This needs to be able to perform 50M blocks/sec otherwise it becomes a bottleneck
-        int cx = center.getBlockX();
-        int cz = center.getBlockZ();
-        int bx = chunk.getX() << 4;
-        int bz = chunk.getZ() << 4;
-        int tx = bx + 15;
-        int tz = bz + 15;
-        int cx1 = bx - cx;
-        int cx2 = tx - cx;
-        int cxMax, cxMin;
-        if (cx1 < cx2) {
-            cxMin = cx1;
-            cxMax = cx2;
-        } else {
-            cxMin = cx2;
-            cxMax = cx1;
-        }
-        int cxMin2 = cxMin * cxMin;
-        int cxMax2 = cxMax * cxMax;
-        int cz1 = bz - cz;
-        int cz2 = tz - cz;
-        int czMax, czMin;
-        if (cz1 < cz2) {
-            czMin = cz1;
-            czMax = cz2;
-        } else {
-            czMin = cz2;
-            czMax = cz1;
-        }
-        int czMin2 = czMin * czMin;
-        int czMax2 = czMax * czMax;
-
-
-        if (sphere) {
-            // Does not contain chunk
-            if (cxMin2 + czMin2 >= radiusLengthSqr) {
-                return;
-            }
-            int diffY2 = radiusLengthSqr - cxMax2 - czMax2;
-            // (shortcut) Contains all of certain layers
-            if (diffY2 >= 0) {
-                // Get the solid layers
-                int cy = center.getBlockY();
-                int diffYFull = MathMan.usqrt(diffY2);
-                int yBotFull = Math.max(0, cy - diffYFull);
-                int yTopFull = Math.min(255, cy + diffYFull);
-                // Set those layers
-                filter(chunk, filter, block, get, set, yBotFull, yTopFull, full);
-
-                // Fill the remaining layers
-                if (yBotFull != 0 || yTopFull != 255) {
-                    int diffYPartial = MathMan.usqrt(radiusLengthSqr - cxMin * cxMin - czMin * czMin);
-
-                    if (yBotFull != 0) {
-                        int yBotPartial = Math.max(0, cy - diffYPartial);
-                        filterSpherePartial(yBotPartial, yBotFull - 1, bx, bz, filter, block, get, set);
-                    }
-
-                    if (yTopFull != 255) {
-                        int yTopPartial = Math.min(255, cy + diffYPartial);
-                        filterSpherePartial(yTopFull + 1, yTopPartial - 1, bx, bz, filter, block, get, set);
-                    }
-                }
-            }
-
-
-        } else {
-            super.filter(chunk, filter, block, get, set, full); // TODO optimize non spheres
-        }
-    }
 }

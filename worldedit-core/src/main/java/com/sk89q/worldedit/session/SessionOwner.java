@@ -35,8 +35,4 @@ public interface SessionOwner extends Subject {
      */
     SessionKey getSessionKey();
 
-    default LocalSession getSession() {
-        return WorldEdit.getInstance().getSessionManager().get(this);
-    }
-
 }

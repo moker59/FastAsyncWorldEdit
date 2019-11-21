@@ -62,12 +62,12 @@ public class BlockDataCyler implements DoubleActionBlockTool {
         if (!config.allowedDataCycleBlocks.isEmpty()
                 && !player.hasPermission("worldedit.override.data-cycler")
                 && !config.allowedDataCycleBlocks.contains(block.getBlockType().getId())) {
-            player.printError(BBC.BLOCK_CYCLER_NO_PERM.s());
+            player.printError("You are not permitted to cycle the data value of that block.");
             return true;
         }
 
         if (block.getStates().keySet().isEmpty()) {
-            player.printError(BBC.BLOCK_CYCLER_CANNOT_CYCLE.s());
+            player.printError("That block's data cannot be cycled!");
         } else {
             Property<?> currentProperty = selectedProperties.get(player.getUniqueId());
 
@@ -91,7 +91,7 @@ public class BlockDataCyler implements DoubleActionBlockTool {
                         editSession.setBlock(blockPoint, newBlock);
                         player.print("Value of " + currentProperty.getName() + " is now " + currentProperty.getValues().get(index));
                     } catch (MaxChangedBlocksException e) {
-                        player.printError(BBC.BLOCK_CYCLER_LIMIT.s());
+                        player.printError("Max blocks change limit reached.");
                     } finally {
                         session.remember(editSession);
                     }

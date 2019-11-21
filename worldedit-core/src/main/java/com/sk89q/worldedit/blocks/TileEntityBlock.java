@@ -37,17 +37,6 @@ public interface TileEntityBlock extends NbtValued {
      *
      * @return tile entity ID, non-null string
      */
-    default String getNbtId() {
-        CompoundTag nbtData = getNbtData();
-        if (nbtData == null) {
-            return "";
-        }
-        Tag idTag = nbtData.getValue().get("id");
-        if (idTag instanceof StringTag) {
-            return ((StringTag) idTag).getValue();
-        } else {
-            return "";
-        }
-    }
+    String getNbtId();
 
 }

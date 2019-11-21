@@ -43,10 +43,6 @@ public class Registry<V extends Keyed> implements Iterable<V> {
         return name;
     }
 
-    public Map<String, V> getMap() {
-        return map;
-    }
-
     @Nullable
     public V get(final String key) {
         checkState(key.equals(key.toLowerCase(Locale.ROOT)), "key must be lowercase");

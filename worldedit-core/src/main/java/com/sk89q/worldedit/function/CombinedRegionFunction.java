@@ -32,7 +32,7 @@ import java.util.Collection;
  */
 public class CombinedRegionFunction implements RegionFunction {
 
-    private RegionFunction[] functions;
+    private final List<RegionFunction> functions = new ArrayList<>();
 
     /**
      * Create a combined region function.
@@ -47,7 +47,7 @@ public class CombinedRegionFunction implements RegionFunction {
      */
     public CombinedRegionFunction(Collection<RegionFunction> functions) {
         checkNotNull(functions);
-        this.functions = functions.toArray(new RegionFunction[0]);
+        this.functions.addAll(functions);
     }
 
     /**
@@ -56,21 +56,7 @@ public class CombinedRegionFunction implements RegionFunction {
      * @param function an array of functions to match
      */
     public CombinedRegionFunction(RegionFunction... function) {
-        this.functions = function;
-    }
-
-    public static CombinedRegionFunction combine(RegionFunction function, RegionFunction add) {
-        CombinedRegionFunction combined;
-        if (function instanceof CombinedRegionFunction) {
-            combined = ((CombinedRegionFunction) function);
-            combined.add(add);
-        } else if (add instanceof CombinedRegionFunction) {
-            combined = new CombinedRegionFunction(function);
-            combined.add(((CombinedRegionFunction) add).functions);
-        } else {
-            combined = new CombinedRegionFunction(function, add);
-        }
-        return combined;
+        this(Arrays.asList(checkNotNull(function)));
     }
 
     /**
@@ -80,9 +66,7 @@ public class CombinedRegionFunction implements RegionFunction {
      */
     public void add(Collection<RegionFunction> functions) {
         checkNotNull(functions);
-        ArrayList<RegionFunction> functionsList = new ArrayList<>(Arrays.asList(this.functions));
-        functionsList.addAll(functions);
-        this.functions = functionsList.toArray(new RegionFunction[0]);
+        this.functions.addAll(functions);
     }
 
     /**
@@ -98,7 +82,9 @@ public class CombinedRegionFunction implements RegionFunction {
     public boolean apply(BlockVector3 position) throws WorldEditException {
         boolean ret = false;
         for (RegionFunction function : functions) {
-            ret |= (function.apply(position));
+            if (function.apply(position)) {
+                ret = true;
+            }
         }
         return ret;
     }

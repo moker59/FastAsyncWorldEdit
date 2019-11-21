@@ -133,16 +133,6 @@ public class BukkitBlockCommandSender extends AbstractNonPlayerActor implements 
     }
 
     @Override
-    public boolean togglePermission(String permission) {
-        return true;
-    }
-
-    @Override
-    public void setPermission(String permission, boolean value) {
-
-    }
-
-    @Override
     public SessionKey getSessionKey() {
         return new SessionKey() {
             @Nullable
@@ -153,14 +143,9 @@ public class BukkitBlockCommandSender extends AbstractNonPlayerActor implements 
 
             @Override
             public boolean isActive() {
-                @NotNull Block block = sender.getBlock();
-                @NotNull World world = block.getWorld();
-                if (world.isChunkLoaded(block.getX() >> 4, block.getZ() >> 4)) {
-                    return sender.getBlock().getType() == Material.COMMAND_BLOCK
-                            || sender.getBlock().getType() == Material.CHAIN_COMMAND_BLOCK
-                            || sender.getBlock().getType() == Material.REPEATING_COMMAND_BLOCK;
-                }
-                return false;
+                return sender.getBlock().getType() == Material.COMMAND_BLOCK
+                        || sender.getBlock().getType() == Material.CHAIN_COMMAND_BLOCK
+                        || sender.getBlock().getType() == Material.REPEATING_COMMAND_BLOCK;
             }
 
             @Override

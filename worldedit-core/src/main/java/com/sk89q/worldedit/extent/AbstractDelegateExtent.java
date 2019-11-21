@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 /**
  * A base class for {@link Extent}s that merely passes extents onto another.
  */
-public class AbstractDelegateExtent implements Extent, LightingExtent {
+public abstract class AbstractDelegateExtent implements Extent {
 
     private final Extent extent;
 
@@ -59,7 +59,7 @@ public class AbstractDelegateExtent implements Extent, LightingExtent {
      *
      * @param extent the extent
      */
-    public AbstractDelegateExtent(Extent extent) {
+    protected AbstractDelegateExtent(Extent extent) {
         checkNotNull(extent);
         this.extent = extent;
     }
@@ -75,70 +75,17 @@ public class AbstractDelegateExtent implements Extent, LightingExtent {
 
     @Override
     public BlockState getBlock(BlockVector3 position) {
-       return extent.getBlock(position.getX(),position.getY(),position.getZ());
-    }
-
-    /*
-        Queue based methods
-        TODO NOT IMPLEMENTED: IQueueExtent and such need to implement these
-         */
-    @Override
-    public boolean isQueueEnabled() {
-        return extent.isQueueEnabled();
+        return extent.getBlock(position);
     }
 
     @Override
-    public void disableQueue() {
-        try {
-            if (!(extent instanceof ForgetfulExtentBuffer)) { // placeholder
-                extent.disableQueue();
-            }
-        } catch (FaweException ignored) {
-        }
-        if (extent instanceof AbstractDelegateExtent) {
-            Extent next = ((AbstractDelegateExtent) extent).getExtent();
-            new ExtentTraverser(this).setNext(next);
-        } else {
-            getLogger(AbstractDelegateExtent.class).debug("Cannot disable queue");
-        }
+    public BaseBlock getFullBlock(BlockVector3 position) {
+        return extent.getFullBlock(position);
     }
 
     @Override
-    public void enableQueue() {
-        try {
-            extent.enableQueue();
-        } catch (FaweException enableQueue) {
-            // TODO NOT IMPLEMENTED - THIS IS IMPORTANT (ForgetfulExtentBuffer is just a placeholder for now, it won't work)
-            new ExtentTraverser<>(this).setNext(new ForgetfulExtentBuffer(extent));
-        }
-    }
-
-    /*
-     History
-     */
-    public void setChangeSet(FaweChangeSet changeSet) {
-        if (extent instanceof HistoryExtent) {
-            HistoryExtent history = ((HistoryExtent) extent);
-            if (changeSet == null) {
-                new ExtentTraverser(this).setNext(history.getExtent());
-            } else {
-                history.setChangeSet(changeSet);
-            }
-        } else if (extent instanceof AbstractDelegateExtent) {
-            ((AbstractDelegateExtent) extent).setChangeSet(changeSet);
-        } else if (changeSet != null) {
-            new ExtentTraverser<>(this).setNext(new HistoryExtent(extent, changeSet));
-        }
-    }
-
-    @Override
-    public int getMaxY() {
-        return extent.getMaxY();
-    }
-
-    @Override
-    public BlockState getBlock(int x, int y, int z) {
-        return extent.getBlock(x, y, z);
+    public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 location, T block) throws WorldEditException {
+        return extent.setBlock(location, block);
     }
 
     @Override
@@ -163,93 +110,8 @@ public class AbstractDelegateExtent implements Extent, LightingExtent {
     }
 
     @Override
-    public BaseBlock getFullBlock(int x, int y, int z) {
-        return extent.getFullBlock(x, y, z);
-    }
-
-    @Override
-    public BiomeType getBiomeType(int x, int z) {
-        return extent.getBiomeType(x, z);
-    }
-
-    @Override
-    public boolean setBiome(int x, int y, int z, BiomeType biome) {
-        return extent.setBiome(x, y, z, biome);
-    }
-
-    @Override
-    public <T extends BlockStateHolder<T>> boolean setBlock(BlockVector3 position, T block)
-        throws WorldEditException {
-        return extent.setBlock(position.getX(), position.getY(), position.getZ(), block);
-    }
-
-    @Override
-    public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block)
-        throws WorldEditException {
-        return extent.setBlock(x, y, z, block);
-    }
-
-    @Override
-    public boolean setTile(int x, int y, int z, CompoundTag tile) throws WorldEditException {
-        return setBlock(x, y, z, getBlock(x, y, z).toBaseBlock(tile));
-    }
-
-    @Override
     public boolean setBiome(BlockVector2 position, BiomeType biome) {
-        return extent.setBiome(position.getX(), 0, position.getZ(), biome);
-    }
-
-    @Override
-    public int getSkyLight(int x, int y, int z) {
-        if (extent instanceof LightingExtent) {
-            return ((LightingExtent) extent).getSkyLight(x, y, z);
-        }
-        return 0;
-    }
-
-    @Override
-    public int getBlockLight(int x, int y, int z) {
-        if (extent instanceof LightingExtent) {
-            return ((LightingExtent) extent).getBlockLight(x, y, z);
-        }
-        return getBrightness(x, y, z);
-    }
-    @Override
-    public int getOpacity(int x, int y, int z) {
-        if (extent instanceof LightingExtent) {
-            return ((LightingExtent) extent).getOpacity(x, y, z);
-        }
-        return getBlock(x, y, z).getBlockType().getMaterial().getLightOpacity();
-    }
-
-    @Override
-    public int getLight(int x, int y, int z) {
-        if (extent instanceof LightingExtent) {
-            return ((LightingExtent) extent).getLight(x, y, z);
-        }
-        return 0;
-    }
-
-    @Override
-    public int getBrightness(int x, int y, int z) {
-        if (extent instanceof LightingExtent) {
-            return ((LightingExtent) extent).getBrightness(x, y, z);
-        }
-        return getBlock(x, y, z).getBlockType().getMaterial().getLightValue();
-    }
-
-    @Override
-    public void relightChunk(int chunkX, int chunkZ) {
-        if (extent instanceof LightingExtent) {
-            ((LightingExtent) extent).relightChunk(chunkX, chunkZ);
-        } else {
-            throw new UnsupportedOperationException("Cannot relight");
-        }
-    }
-
-    @Override
-    public String toString() {
-        return super.toString() + ":" + (extent == this ? "" : extent.toString());
+        return extent.setBiome(position, biome);
     }
 
     @Override
@@ -267,12 +129,9 @@ public class AbstractDelegateExtent implements Extent, LightingExtent {
     }
 
     @Override
-    public @Nullable Operation commit() {
+    public final @Nullable Operation commit() {
         Operation ours = commitBefore();
-        Operation other = null;
-        if (extent != this) {
-            other = extent.commit();
-        }
+        Operation other = extent.commit();
         if (ours != null && other != null) {
             return new OperationQueue(ours, other);
         } else if (ours != null) {
@@ -284,21 +143,4 @@ public class AbstractDelegateExtent implements Extent, LightingExtent {
         }
     }
 
-    @Override
-    public Extent addProcessor(IBatchProcessor processor) {
-        Extent result = this.extent.addProcessor(processor);
-        if (result != this.extent) {
-            new ExtentTraverser<Extent>(this).setNext(result);
-        }
-        return this;
-    }
-
-    @Override
-    public Extent disableHistory() {
-        Extent result = this.extent.disableHistory();
-        if (result != this.extent) {
-            new ExtentTraverser<Extent>(this).setNext(result);
-        }
-        return this;
-    }
 }

@@ -49,7 +49,7 @@ import java.util.concurrent.locks.Condition;
 /**
  * An object that can perform actions in WorldEdit.
  */
-public interface Actor extends Identifiable, SessionOwner, Subject, MapMetadatable {
+public interface Actor extends Identifiable, SessionOwner, Subject {
 
     /**
      * Get the name of the actor.
@@ -139,97 +139,4 @@ public interface Actor extends Identifiable, SessionOwner, Subject, MapMetadatab
      */
     void dispatchCUIEvent(CUIEvent event);
 
-    boolean runAction(Runnable ifFree, boolean checkFree, boolean async);
-
-    /**
-     * Decline any pending actions
-     * @return true if an action was pending
-     */
-    default boolean decline() {
-        InterruptableCondition confirm = deleteMeta("cmdConfirm");
-        if (confirm != null) {
-            confirm.interrupt();
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Confirm any pending actions
-     * @return true if an action was pending
-     */
-    default boolean confirm() {
-        InterruptableCondition confirm = deleteMeta("cmdConfirm");
-        if (confirm != null) {
-            confirm.signal();;
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Queue an action to run async
-     *
-     * @param run
-     */
-    default void queueAction(Runnable run) {
-        runAction(run, false, true);
-    }
-
-    default boolean checkAction() {
-        long time = getMeta("faweActionTick", Long.MIN_VALUE);
-        long tick = Fawe.get().getTimer().getTick();
-        setMeta("faweActionTick", tick);
-        return tick > time;
-    }
-
-    default FaweLimit getLimit() {
-        return Settings.IMP.getLimit(this);
-    }
-
-    default boolean runAsyncIfFree(Runnable r) {
-        return runAction(r, true, true);
-    }
-
-    default boolean runIfFree(Runnable r) {
-        return runAction(r, true, false);
-    }
-
-    /**
-     * Attempt to cancel all pending and running actions
-     * @param close if Extents are closed
-     * @return number of cancelled actions
-     */
-    default int cancel(boolean close) {
-        int cancelled = decline() ? 1 : 0;
-
-        for (Request request : Request.getAll()) {
-            EditSession editSession = request.getEditSession();
-            if (editSession != null) {
-                Player player = editSession.getPlayer();
-                if (equals(player)) {
-                    editSession.cancel();
-                    cancelled++;
-                }
-            }
-        }
-        VirtualWorld world = getSession().getVirtualWorld();
-        if (world != null) {
-            if (close) {
-                try {
-                    world.close(false);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            else {
-                try {
-                    world.close(false);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return cancelled;
-    }
 }

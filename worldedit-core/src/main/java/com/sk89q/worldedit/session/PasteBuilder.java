@@ -51,7 +51,6 @@ public class PasteBuilder {
     private boolean ignoreAirBlocks;
     private boolean copyEntities = true; // default because it used to be this way
     private boolean copyBiomes;
-    private RegionFunction canApply;
 
     /**
      * Create a new instance.
@@ -127,10 +126,6 @@ public class PasteBuilder {
         this.copyBiomes = copyBiomes;
         return this;
     }
-    public PasteBuilder filter(RegionFunction function) {
-        this.canApply = function;
-        return this;
-    }
 
     /**
      * Build the operation.
@@ -138,33 +133,13 @@ public class PasteBuilder {
      * @return the operation
      */
     public Operation build() {
-        Extent extent = clipboard;
-        if (!transform.isIdentity()) {
-            extent = new BlockTransformExtent(extent, transform);
-        }
+        BlockTransformExtent extent = new BlockTransformExtent(clipboard, transform);
         ForwardExtentCopy copy = new ForwardExtentCopy(extent, clipboard.getRegion(), clipboard.getOrigin(), targetExtent, to);
         copy.setTransform(transform);
-
-        copy.setCopyingEntities(copyEntities);
-        copy.setCopyingBiomes(copyBiomes && clipboard.hasBiomes());
-        if (this.canApply != null) {
-            copy.setFilterFunction(this.canApply);
-        }
         if (ignoreAirBlocks) {
-            sourceMask = MaskIntersection.of(sourceMask, new ExistingBlockMask(clipboard));
-        }
-        if (targetExtent instanceof EditSession) {
-            Mask esSourceMask = ((EditSession) targetExtent).getSourceMask();
-            if (esSourceMask == Masks.alwaysFalse()) {
-                return null;
-            }
-            if (esSourceMask != null) {
-                new MaskTraverser(esSourceMask).reset(extent);
-                ((EditSession) targetExtent).setSourceMask(null);
-                sourceMask = MaskIntersection.of(sourceMask, esSourceMask);
-            }
-        }
-        if (sourceMask != null && sourceMask != Masks.alwaysTrue()) {
+            copy.setSourceMask(sourceMask == Masks.alwaysTrue() ? new ExistingBlockMask(clipboard)
+                    : new MaskIntersection(sourceMask, new ExistingBlockMask(clipboard)));
+        } else {
             copy.setSourceMask(sourceMask);
         }
         copy.setCopyingEntities(copyEntities);

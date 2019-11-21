@@ -96,24 +96,8 @@ public class RequestExtent implements Extent {
     }
 
     @Override
-    public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block)
-        throws WorldEditException {
-        return getExtent().setBlock(x, y, z, block);
-    }
-
-    @Override
-    public boolean setTile(int x, int y, int z, CompoundTag tile) throws WorldEditException {
-        return getExtent().setTile(x, y, z, tile);
-    }
-
-    @Override
     public boolean setBiome(BlockVector2 position, BiomeType biome) {
         return getExtent().setBiome(position, biome);
-    }
-
-    @Override
-    public boolean setBiome(int x, int y, int z, BiomeType biome) {
-        return getExtent().setBiome(BlockVector2.at(x,z), biome);
     }
 
     @Override

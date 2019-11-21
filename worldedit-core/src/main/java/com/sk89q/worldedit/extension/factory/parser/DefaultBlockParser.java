@@ -237,7 +237,9 @@ public class DefaultBlockParser extends InputParser<BaseBlock> {
     }
 
     private BaseBlock parseLogic(String input, ParserContext context) throws InputParseException {
-        String[] blockAndExtraData = input.trim().split("\\|", 2);
+        BlockType blockType = null;
+        Map<Property<?>, Object> blockStates = new HashMap<>();
+        String[] blockAndExtraData = input.trim().split("\\|");
         blockAndExtraData[0] = woolMapper(blockAndExtraData[0]);
 
         BlockState state = null;
@@ -250,28 +252,16 @@ public class DefaultBlockParser extends InputParser<BaseBlock> {
                     throw new InputParseException("Invalid colon.");
                 } else if (split.length == 1) {
                     state = LegacyMapper.getInstance().getBlockFromLegacy(Integer.parseInt(split[0]));
-                } else if (MathMan.isInteger(split[0])) {
-                    int id = Integer.parseInt(split[0]);
-                    int data = Integer.parseInt(split[1]);
-                    if (data < 0 || data >= 16) {
-                        throw new InputParseException("Invalid data " + data);
-                    }
-                    state = LegacyMapper.getInstance().getBlockFromLegacy(id, data);
                 } else {
-                    BlockType type = BlockTypes.get(split[0].toLowerCase(Locale.ROOT));
-                    if (type != null) {
-                        int data = Integer.parseInt(split[1]);
-                        if (data < 0 || data >= 16) {
-                            throw new InputParseException("Invalid data " + data);
-                        }
-                        state = LegacyMapper.getInstance().getBlockFromLegacy(type.getLegacyCombinedId() >> 4, data);
-                    }
+                    state = LegacyMapper.getInstance().getBlockFromLegacy(Integer.parseInt(split[0]), Integer.parseInt(split[1]));
+                }
+                if (state != null) {
+                    blockType = state.getBlockType();
                 }
             } catch (NumberFormatException ignored) {
             }
         }
 
-        CompoundTag nbt = null;
         if (state == null) {
             String typeString;
             String stateString = null;
@@ -292,101 +282,89 @@ public class DefaultBlockParser extends InputParser<BaseBlock> {
             if (typeString.isEmpty()) {
                 throw new InputParseException("Invalid format");
             }
-            // PosX
-            if (typeString.matches("pos[0-9]+")) {
-                int index = Integer.parseInt(typeString.replaceAll("[a-z]+", ""));
+            String[] stateProperties = EMPTY_STRING_ARRAY;
+            if (stateString != null) {
+                stateProperties = stateString.split(",");
+            }
+
+            if ("hand".equalsIgnoreCase(typeString)) {
+                // Get the block type from the item in the user's hand.
+                final BaseBlock blockInHand = getBlockInHand(context.requireActor(), HandSide.MAIN_HAND);
+                if (blockInHand.getClass() != BaseBlock.class) {
+                    return blockInHand;
+                }
+
+                blockType = blockInHand.getBlockType();
+                blockStates.putAll(blockInHand.getStates());
+            } else if ("offhand".equalsIgnoreCase(typeString)) {
+                // Get the block type from the item in the user's off hand.
+                final BaseBlock blockInHand = getBlockInHand(context.requireActor(), HandSide.OFF_HAND);
+                if (blockInHand.getClass() != BaseBlock.class) {
+                    return blockInHand;
+                }
+
+                blockType = blockInHand.getBlockType();
+                blockStates.putAll(blockInHand.getStates());
+            } else if ("pos1".equalsIgnoreCase(typeString)) {
                 // Get the block type from the "primary position"
                 final World world = context.requireWorld();
                 final BlockVector3 primaryPosition;
                 try {
-                    primaryPosition = context.requireSession().getRegionSelector(world).getVertices().get(index - 1);
+                    primaryPosition = context.requireSession().getRegionSelector(world).getPrimaryPosition();
                 } catch (IncompleteRegionException e) {
                     throw new InputParseException("Your selection is not complete.");
                 }
-                state = world.getBlock(primaryPosition);
+                final BlockState blockInHand = world.getBlock(primaryPosition);
+
+                blockType = blockInHand.getBlockType();
+                blockStates.putAll(blockInHand.getStates());
             } else {
-                if ("hand".equalsIgnoreCase(typeString)) {
-                    // Get the block type from the item in the user's hand.
-                    BaseBlock block = getBlockInHand(context.requireActor(), HandSide.MAIN_HAND);
-                    state = block.toBlockState();
-                    nbt = block.getNbtData();
-                } else if ("offhand".equalsIgnoreCase(typeString)) {
-                    // Get the block type from the item in the user's off hand.
-                    BaseBlock block = getBlockInHand(context.requireActor(), HandSide.OFF_HAND);
-                    state = block.toBlockState();
-                    nbt = block.getNbtData();
-                } else if (typeString.matches("slot[0-9]+")) {
-                    int slot = Integer.parseInt(typeString.substring(4)) - 1;
-                    Actor actor = context.requireActor();
-                    if (!(actor instanceof Player)) {
-                        throw new InputParseException("The user is not a player!");
-                    }
-                    Player player = (Player) actor;
-                    BlockBag bag = player.getInventoryBlockBag();
-                    if (bag == null || !(bag instanceof SlottableBlockBag)) {
-                        throw new InputParseException("Unsupported!");
-                    }
-                    SlottableBlockBag slottable = (SlottableBlockBag) bag;
-                    BaseItem item = slottable.getItem(slot);
-
-                    if (!item.getType().hasBlockType()) {
-                        throw new InputParseException("You're not holding a block!");
-                    }
-                    state = item.getType().getBlockType().getDefaultState();
-                    nbt = item.getNbtData();
-                } else {
-                    BlockType type = BlockTypes.parse(typeString.toLowerCase(Locale.ROOT));
-
-                    if (type != null) {
-                        state = type.getDefaultState();
-                    }
-                    if (state == null) {
-                        throw new NoMatchException("Does not match a valid block type: '" + input + "'");
-                    }
-                }
+                // Attempt to lookup a block from ID or name.
+                blockType = BlockTypes.get(typeString.toLowerCase(Locale.ROOT));
             }
-            if (nbt == null) nbt = state.getNbtData();
 
-            if (stateString != null) {
-                state = BlockState.get(state.getBlockType(), "[" + stateString + "]", state);
-                if (context.isPreferringWildcard()) {
-                    if (stateString.isEmpty()) {
-                        state = new FuzzyBlockState(state);
-                    } else {
-                        BlockType type = state.getBlockType();
-                        FuzzyBlockState.Builder fuzzyBuilder = FuzzyBlockState.builder();
-                        fuzzyBuilder.type(type);
-                        String[] entries = stateString.split(",");
-                        for (String entry : entries) {
-                            String[] split = entry.split("=");
-                            String key = split[0];
-                            String val = split[1];
-                            Property<Object> prop = type.getProperty(key);
-                            fuzzyBuilder.withProperty(prop, prop.getValueFor(val));
-                        }
-                        state = fuzzyBuilder.build();
-                    }
+            if (blockType == null) {
+                throw new NoMatchException("Does not match a valid block type: '" + input + "'");
+            }
+
+            blockStates.putAll(parseProperties(blockType, stateProperties, context));
+
+            if (context.isPreferringWildcard()) {
+                FuzzyBlockState.Builder fuzzyBuilder = FuzzyBlockState.builder();
+                fuzzyBuilder.type(blockType);
+                for (Map.Entry<Property<?>, Object> blockState : blockStates.entrySet()) {
+                    @SuppressWarnings("unchecked")
+                    Property<Object> objProp = (Property<Object>) blockState.getKey();
+                    fuzzyBuilder.withProperty(objProp, blockState.getValue());
+                }
+                state = fuzzyBuilder.build();
+            } else {
+                // No wildcards allowed => eliminate them. (Start with default state)
+                state = blockType.getDefaultState();
+                for (Map.Entry<Property<?>, Object> blockState : blockStates.entrySet()) {
+                    @SuppressWarnings("unchecked")
+                    Property<Object> objProp = (Property<Object>) blockState.getKey();
+                    state = state.with(objProp, blockState.getValue());
                 }
             }
         }
         // this should be impossible but IntelliJ isn't that smart
-        if (state == null) {
+        if (blockType == null) {
             throw new NoMatchException("Does not match a valid block type: '" + input + "'");
         }
 
-        if (blockAndExtraData.length > 1 && blockAndExtraData[1].startsWith("{")) {
-            String joined = StringMan.join(Arrays.copyOfRange(blockAndExtraData, 1, blockAndExtraData.length), "|");
-            try {
-                nbt = JSON2NBT.getTagFromJson(joined);
-            } catch (NBTException e) {
-                throw new NoMatchException(e.getMessage());
+        // Check if the item is allowed
+        if (context.isRestricted()) {
+            Actor actor = context.requireActor();
+            if (actor != null && !actor.hasPermission("worldedit.anyblock")
+                    && worldEdit.getConfiguration().disallowedBlocks.contains(blockType.getId())) {
+                throw new DisallowedUsageException("You are not allowed to use '" + input + "'");
             }
         }
 
-        // Check if the item is allowed
-        BlockType blockType = state.getBlockType();
-
-        if (nbt != null) return validate(context, state.toBaseBlock(nbt));
+        if (!context.isTryingLegacy()) {
+            return state.toBaseBlock();
+        }
 
         if (blockType == BlockTypes.SIGN || blockType == BlockTypes.WALL_SIGN
                 || BlockCategories.SIGNS.contains(blockType)) {
@@ -396,43 +374,36 @@ public class DefaultBlockParser extends InputParser<BaseBlock> {
             text[1] = blockAndExtraData.length > 2 ? blockAndExtraData[2] : "";
             text[2] = blockAndExtraData.length > 3 ? blockAndExtraData[3] : "";
             text[3] = blockAndExtraData.length > 4 ? blockAndExtraData[4] : "";
-            return validate(context, new SignBlock(state, text));
+            return new SignBlock(state, text);
         } else if (blockType == BlockTypes.SPAWNER) {
             // Allow setting mob spawn type
             if (blockAndExtraData.length > 1) {
                 String mobName = blockAndExtraData[1];
-                EntityType mobType = EntityTypes.parse(mobName);
-                return validate(context, new MobSpawnerBlock(state, mobName));
+                EntityType ent = EntityTypes.get(mobName.toLowerCase(Locale.ROOT));
+                if (ent == null) {
+                    throw new NoMatchException("Unknown entity type '" + mobName + "'");
+                }
+                mobName = ent.getId();
+                if (!worldEdit.getPlatformManager().queryCapability(Capability.USER_COMMANDS).isValidMobType(mobName)) {
+                    throw new NoMatchException("Unknown mob type '" + mobName + "'");
+                }
+                return new MobSpawnerBlock(state, mobName);
             } else {
-                return validate(context, new MobSpawnerBlock(state, EntityTypes.PIG.getId()));
+                //noinspection ConstantConditions
+                return new MobSpawnerBlock(state, EntityTypes.PIG.getId());
             }
         } else if (blockType == BlockTypes.PLAYER_HEAD || blockType == BlockTypes.PLAYER_WALL_HEAD) {
             // allow setting type/player/rotation
             if (blockAndExtraData.length <= 1) {
-                return validate(context, new SkullBlock(state));
+                return new SkullBlock(state);
             }
 
             String type = blockAndExtraData[1];
 
-            return validate(context, new SkullBlock(state, type.replace(" ", "_"))); // valid MC usernames
+            return new SkullBlock(state, type.replace(" ", "_")); // valid MC usernames
         } else {
-            return validate(context, state.toBaseBlock());
+            return state.toBaseBlock();
         }
     }
 
-    private <T extends BlockStateHolder> T validate(ParserContext context, T holder) {
-        if (context.isRestricted()) {
-            Actor actor = context.requireActor();
-            if (!actor.hasPermission("worldedit.anyblock") && worldEdit.getConfiguration().checkDisallowedBlocks(holder)) {
-                throw new DisallowedUsageException(BBC.BLOCK_NOT_ALLOWED + " '" + holder + "'");
-            }
-            CompoundTag nbt = holder.getNbtData();
-            if (nbt != null) {
-                if (!actor.hasPermission("worldedit.anyblock")) {
-                    throw new DisallowedUsageException("You are not allowed to nbt'");
-                }
-            }
-        }
-        return holder;
-    }
 }

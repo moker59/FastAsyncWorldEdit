@@ -41,19 +41,17 @@ import javax.annotation.Nullable;
 /**
  * An adapter to adapt a Bukkit entity into a WorldEdit one.
  */
-public class BukkitEntity implements Entity {
+class BukkitEntity implements Entity {
 
     private final WeakReference<org.bukkit.entity.Entity> entityRef;
-    private final EntityType type;
 
     /**
      * Create a new instance.
      *
      * @param entity the entity
      */
-    public BukkitEntity(org.bukkit.entity.Entity entity) {
+    BukkitEntity(org.bukkit.entity.Entity entity) {
         checkNotNull(entity);
-        this.type = entity.getType();
         this.entityRef = new WeakReference<>(entity);
     }
 
@@ -85,11 +83,6 @@ public class BukkitEntity implements Entity {
         } else {
             return false;
         }
-    }
-
-    @Override
-    public com.sk89q.worldedit.world.entity.EntityType getType() {
-        return EntityTypes.get(type.getName().toUpperCase(Locale.ROOT));
     }
 
     @Override

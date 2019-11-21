@@ -43,7 +43,7 @@ import java.util.Set;
  */
 public class SnapshotRestore {
 
-    private final Map<BlockVector2, Set<BlockVector3>> neededChunks = new LinkedHashMap<>();
+    private final Map<BlockVector2, ArrayList<BlockVector3>> neededChunks = new LinkedHashMap<>();
     private final ChunkStore chunkStore;
     private final EditSession editSession;
     private ArrayList<BlockVector2> missingChunks;
@@ -110,7 +110,7 @@ public class SnapshotRestore {
 
         // Unidentified chunk
         if (!neededChunks.containsKey(chunkPos)) {
-            neededChunks.put(chunkPos, new LocalBlockVectorSet());
+            neededChunks.put(chunkPos, new ArrayList<>());
         }
 
         neededChunks.get(chunkPos).add(pos);
@@ -136,7 +136,7 @@ public class SnapshotRestore {
         errorChunks = new ArrayList<>();
 
         // Now let's start restoring!
-        for (Map.Entry<BlockVector2, Set<BlockVector3>> entry : neededChunks.entrySet()) {
+        for (Map.Entry<BlockVector2, ArrayList<BlockVector3>> entry : neededChunks.entrySet()) {
             BlockVector2 chunkPos = entry.getKey();
             Chunk chunk;
 

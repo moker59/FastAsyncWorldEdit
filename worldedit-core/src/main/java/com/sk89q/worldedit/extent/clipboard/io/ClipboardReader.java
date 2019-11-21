@@ -41,9 +41,7 @@ public interface ClipboardReader extends Closeable {
      * @return the read clipboard
      * @throws IOException thrown on I/O error
      */
-    default Clipboard read() throws IOException {
-        return read(UUID.randomUUID());
-    }
+    Clipboard read() throws IOException;
 
     /**
      * Get the DataVersion from a file (if possible).
@@ -52,13 +50,5 @@ public interface ClipboardReader extends Closeable {
      */
     default OptionalInt getDataVersion() {
         return OptionalInt.empty();
-    }
-
-    default Clipboard read(UUID uuid) throws IOException {
-        return read(uuid, DiskOptimizedClipboard::new);
-    }
-
-    default Clipboard read(UUID uuid, Function<BlockVector3, Clipboard> createOutput) throws IOException {
-        return read();
     }
 }

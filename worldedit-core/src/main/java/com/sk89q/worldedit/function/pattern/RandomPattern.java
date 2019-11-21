@@ -39,18 +39,9 @@ import java.util.Set;
  */
 public class RandomPattern extends AbstractPattern {
 
-    private final SimpleRandom random;
-    private Map<Pattern, Double> weights = new HashMap<>();
-    private RandomCollection<Pattern> collection;
-    private LinkedHashSet<Pattern> patterns = new LinkedHashSet<>();
-
-    public RandomPattern() {
-        this(new TrueRandom());
-    }
-
-    public RandomPattern(SimpleRandom random) {
-        this.random = random;
-    }
+    private final Random random = new Random();
+    private List<Chance> patterns = new ArrayList<>();
+    private double max = 0;
 
     /**
      * Add a pattern to the weight list of patterns.
@@ -63,31 +54,41 @@ public class RandomPattern extends AbstractPattern {
      */
     public void add(Pattern pattern, double chance) {
         checkNotNull(pattern);
-        Double existingWeight = weights.get(pattern);
-        if (existingWeight != null) chance += existingWeight;
-        weights.put(pattern, chance);
-        collection = RandomCollection.of(weights, random);
-        this.patterns.add(pattern);
-    }
-
-    public Set<Pattern> getPatterns() {
-        return patterns;
-    }
-
-    public RandomCollection<Pattern> getCollection() {
-        return collection;
+        patterns.add(new Chance(pattern, chance));
+        max += chance;
     }
 
     @Override
     public BaseBlock apply(BlockVector3 position) {
-        return collection.next(position.getBlockX(), position.getBlockY(), position.getBlockZ()).apply(position);
+        double r = random.nextDouble();
+        double offset = 0;
+
+        for (Chance chance : patterns) {
+            if (r <= (offset + chance.getChance()) / max) {
+                return chance.getPattern().apply(position);
+            }
+            offset += chance.getChance();
+        }
+
+        throw new RuntimeException("ProportionalFillPattern");
     }
 
-    @Override
-    public boolean apply(Extent extent, BlockVector3 get, BlockVector3 set) throws WorldEditException {
-        return collection.next(get.getBlockX(), get.getBlockY(), get.getBlockZ()).apply(extent, get, set);
+    private static class Chance {
+        private Pattern pattern;
+        private double chance;
+
+        private Chance(Pattern pattern, double chance) {
+            this.pattern = pattern;
+            this.chance = chance;
+        }
+
+        public Pattern getPattern() {
+            return pattern;
+        }
+
+        public double getChance() {
+            return chance;
+        }
     }
-
-
 
 }

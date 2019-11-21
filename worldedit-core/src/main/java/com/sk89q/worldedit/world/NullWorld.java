@@ -69,6 +69,7 @@ public class NullWorld extends AbstractWorld {
     public String getId() {
         return "null";
     }
+
     @Override
     public <B extends BlockStateHolder<B>> boolean setBlock(BlockVector3 position, B block, boolean notifyAndLight) throws WorldEditException {
         return false;
@@ -93,18 +94,9 @@ public class NullWorld extends AbstractWorld {
     public BiomeType getBiome(BlockVector2 position) {
         return BiomeTypes.THE_VOID;
     }
-    @Override
-    public BiomeType getBiomeType(int x, int z) {
-        return BiomeTypes.THE_VOID;
-    }
 
     @Override
     public boolean setBiome(BlockVector2 position, BiomeType biome) {
-        return false;
-    }
-
-    @Override
-    public boolean setBiome(int x, int y, int z, BiomeType biome) {
         return false;
     }
 
@@ -150,33 +142,8 @@ public class NullWorld extends AbstractWorld {
     }
 
     @Override
-    public void refreshChunk(int X, int Z) {
-
-    }
-
-    @Override
-    public IChunkGet get(int x, int z) {
-        return NullChunkGet.INSTANCE;
-    }
-
-    @Override
-    public BlockState getBlock(int x, int y, int z) {
+    public BlockState getBlock(BlockVector3 position) {
         return BlockTypes.AIR.getDefaultState();
-    }
-
-    @Override
-    public BaseBlock getFullBlock(int x, int y, int z) {
-        return BlockTypes.AIR.getDefaultState().toBaseBlock();
-    }
-
-    @Override
-    public <T extends BlockStateHolder<T>> boolean setBlock(int x, int y, int z, T block) throws WorldEditException {
-        return false;
-    }
-
-    @Override
-    public boolean setTile(int x, int y, int z, CompoundTag tile) throws WorldEditException {
-        return false;
     }
 
     @Override
@@ -209,8 +176,4 @@ public class NullWorld extends AbstractWorld {
         return INSTANCE;
     }
 
-    @Override
-    public void sendFakeChunk(@Nullable Player player, ChunkPacket packet) {
-
-    }
 }

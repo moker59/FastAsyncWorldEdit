@@ -29,36 +29,8 @@ import javax.annotation.Nullable;
 
 public class DirectionalProperty extends AbstractProperty<Direction> {
 
-    private final int[] map;
-
     public DirectionalProperty(final String name, final List<Direction> values) {
-        this(name, values, 0);
-    }
-
-    private DirectionalProperty(final String name, final List<Direction> values, int bitOffset) {
-        super(name, values, bitOffset);
-        this.map = new int[Direction.values().length];
-        Arrays.fill(this.map, -1);
-        for (int i = 0; i < values.size(); i++) {
-            this.map[values.get(i).ordinal()] = i;
-        }
-    }
-
-    @Override
-    public DirectionalProperty withOffset(int bitOffset) {
-        return new DirectionalProperty(getName(), getValues(), bitOffset);
-    }
-
-    @Override
-    public int getIndex(Direction value) {
-        return this.map[value.ordinal()];
-    }
-
-    @Override
-    public int getIndexFor(CharSequence string) throws IllegalArgumentException {
-        Direction dir = Direction.get(string);
-        if (dir == null) return -1;
-        return getIndex(dir);
+        super(name, values);
     }
 
     @Nullable
