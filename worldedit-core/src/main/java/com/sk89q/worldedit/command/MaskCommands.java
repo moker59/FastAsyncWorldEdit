@@ -437,12 +437,4 @@ public class MaskCommands {
         return new ExpressionMask(exp);
     }
 
-    @Command(
-            name = "!",
-            aliases = {"#not", "#negate", "#!"},
-            desc = "Negate another mask"
-)
-    public Mask negate(@Arg(desc = "Mask") Mask mask) throws ExpressionException {
-        return Masks.negate(mask);
-    }
 }

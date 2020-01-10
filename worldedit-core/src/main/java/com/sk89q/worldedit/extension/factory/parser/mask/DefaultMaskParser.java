@@ -195,7 +195,7 @@ public class DefaultMaskParser extends FaweParser<Mask> {
         }
         if (maskUnions.size() == 1) {
             return maskUnions.get(0);
-        } else if (maskUnions.size() != 0) {
+        } else if (!maskUnions.isEmpty()) {
             return new MaskIntersection(maskUnions);
         } else {
             return null;

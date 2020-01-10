@@ -22,6 +22,7 @@ package com.sk89q.worldedit.extension.factory;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.extension.factory.parser.mask.BlockCategoryMaskParser;
 import com.sk89q.worldedit.extension.factory.parser.mask.DefaultMaskParser;
+import com.sk89q.worldedit.extension.factory.parser.mask.NegateMaskParser;
 import com.sk89q.worldedit.extension.input.InputParseException;
 import com.sk89q.worldedit.extension.input.NoMatchException;
 import com.sk89q.worldedit.extension.input.ParserContext;
@@ -29,7 +30,6 @@ import com.sk89q.worldedit.function.mask.Mask;
 import com.sk89q.worldedit.function.mask.MaskIntersection;
 import com.sk89q.worldedit.internal.registry.AbstractFactory;
 import com.sk89q.worldedit.internal.registry.InputParser;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -60,13 +60,12 @@ public final class MaskFactory extends AbstractFactory<Mask> {
         register(new OffsetMaskParser(worldEdit));
         register(new NoiseMaskParser(worldEdit));
         register(new BlockStateMaskParser(worldEdit));
-        register(new NegateMaskParser(worldEdit));
-        register(new ExpressionMaskParser(worldEdit));
-		*/
+        */
+		register(new NegateMaskParser(worldEdit));
+        //register(new ExpressionMaskParser(worldEdit));
         register(new BlockCategoryMaskParser(worldEdit));
-		/*
-        register(new BiomeMaskParser(worldEdit));
-		*/
+
+        //register(new BiomeMaskParser(worldEdit));
 
 
     }
