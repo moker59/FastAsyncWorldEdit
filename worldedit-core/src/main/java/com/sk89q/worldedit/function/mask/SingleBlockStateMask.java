@@ -3,12 +3,11 @@ package com.sk89q.worldedit.function.mask;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.block.BlockState;
-import com.sk89q.worldedit.world.block.BlockStateHolder;
 
 public class SingleBlockStateMask extends ABlockMask {
     private final char ordinal;
 
-    public BlockStateHolder getBlockState() {
+    public BlockState getBlockState() {
         return BlockState.getFromOrdinal(ordinal);
     }
 

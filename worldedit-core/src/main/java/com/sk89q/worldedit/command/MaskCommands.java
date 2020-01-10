@@ -3,7 +3,6 @@ package com.sk89q.worldedit.command;
 import com.boydti.fawe.object.mask.AdjacentAnyMask;
 import com.boydti.fawe.object.mask.AdjacentMask;
 import com.boydti.fawe.object.mask.AngleMask;
-import com.boydti.fawe.object.mask.BiomeMask;
 import com.boydti.fawe.object.mask.BlockLightMask;
 import com.boydti.fawe.object.mask.BrightnessMask;
 import com.boydti.fawe.object.mask.DataMask;
@@ -14,7 +13,6 @@ import com.boydti.fawe.object.mask.LightMask;
 import com.boydti.fawe.object.mask.OpacityMask;
 import com.boydti.fawe.object.mask.ROCAngleMask;
 import com.boydti.fawe.object.mask.RadiusMask;
-import com.boydti.fawe.object.mask.RandomMask;
 import com.boydti.fawe.object.mask.SimplexMask;
 import com.boydti.fawe.object.mask.SkyLightMask;
 import com.boydti.fawe.object.mask.SurfaceMask;
@@ -25,7 +23,6 @@ import com.boydti.fawe.object.mask.ZAxisMask;
 import com.sk89q.worldedit.IncompleteRegionException;
 import com.sk89q.worldedit.LocalSession;
 import com.sk89q.worldedit.WorldEdit;
-import com.sk89q.worldedit.command.util.CommandPermissionsConditionGenerator;
 import com.sk89q.worldedit.entity.Player;
 import com.sk89q.worldedit.extent.Extent;
 import com.sk89q.worldedit.function.mask.BlockMaskBuilder;
@@ -37,7 +34,6 @@ import com.sk89q.worldedit.function.mask.MaskUnion;
 import com.sk89q.worldedit.function.mask.Masks;
 import com.sk89q.worldedit.function.mask.OffsetMask;
 import com.sk89q.worldedit.function.mask.RegionMask;
-import com.sk89q.worldedit.function.mask.SolidBlockMask;
 import com.sk89q.worldedit.internal.expression.Expression;
 import com.sk89q.worldedit.internal.expression.ExpressionEnvironment;
 import com.sk89q.worldedit.internal.expression.ExpressionException;
@@ -45,7 +41,6 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.math.Vector3;
 import com.sk89q.worldedit.regions.shape.WorldEditExpressionEnvironment;
 import com.sk89q.worldedit.session.request.RequestSelection;
-import com.sk89q.worldedit.world.biome.BiomeType;
 import org.enginehub.piston.annotation.Command;
 import org.enginehub.piston.annotation.CommandContainer;
 import org.enginehub.piston.annotation.param.Arg;
@@ -166,14 +161,6 @@ public class MaskCommands {
     )
     public Mask existing(Extent extent) {
         return new ExistingBlockMask(extent);
-    }
-
-    @Command(
-            name = "#solid",
-            desc = "If there is a solid block"
-    )
-    public Mask solid(Extent extent) {
-        return new SolidBlockMask(extent);
     }
 
     @Command(
@@ -403,26 +390,6 @@ public class MaskCommands {
     public Mask above(@Arg(desc = "Mask") Mask mask) throws ExpressionException {
         OffsetMask offsetMask = new OffsetMask(mask, BlockVector3.at(0, -1, 0));
         return new MaskIntersection(offsetMask, Masks.negate(mask));
-    }
-
-    @Command(
-            name = "$",
-            aliases = {"#biome", "#$"},
-            desc = "in a specific biome",
-            descFooter = "in a specific biome. For a list of biomes use //biomelist"
-)
-    public Mask biome(Extent extent, @Arg(desc = "BiomeType") BiomeType biome) throws ExpressionException {
-        return new BiomeMask(extent, biome);
-    }
-
-    @Command(
-            name = "%",
-            aliases = {"#%", "#percent"},
-            desc = "percentage chance"
-)
-    public Mask random(@Arg(desc = "double chance") double chance) throws ExpressionException {
-        chance = chance / 100;
-        return new RandomMask(chance);
     }
 
     @Command(
