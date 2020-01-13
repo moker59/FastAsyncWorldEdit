@@ -1,6 +1,10 @@
 import org.ajoberstar.grgit.Grgit
 import java.time.format.DateTimeFormatter
 
+plugins {
+    id("com.gradle.build-scan").version("3.1.1")
+}
+
 logger.lifecycle("""
 *******************************************
  You are building FastAsyncWorldEdit!
